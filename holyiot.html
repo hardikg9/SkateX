@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holyiot 21091 Recorder (factory firmware)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --line:#2a2f3a; --text:#e6e8ee; --dim:#8a93a6; --x:#ef6f6c; --y:#5fbf7f; --z:#5aa3f0; --h:#e0a63a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:17px; margin:0 12px 0 0; }
+  main { padding:12px 16px; display:grid; gap:12px; grid-template-columns: 320px 1fr; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 8px; }
+  button { background:#2b3140; color:var(--text); border:1px solid #3a4152; border-radius:6px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover:not(:disabled) { background:#353c4e; } button:disabled { opacity:.4; cursor:default; }
+  button.primary { background:#2563eb; border-color:#2563eb; }
+  button.big { font-size:16px; padding:10px 16px; }
+  select { background:#232836; color:var(--text); border:1px solid #3a4152; border-radius:6px; padding:5px; font:inherit; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:3px 4px; border-bottom:1px solid #222733; text-align:left; }
+  table.kv td:first-child { color:var(--dim); width:50%; }
+  th { color:var(--dim); font-weight:500; font-size:12px; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; background:#2b3140; }
+  .pill.ok { background:#1d4630; color:#9be3bb; } .pill.warn { background:#4a3a17; color:#f0cf86; }
+  canvas { width:100%; height:170px; display:block; background:#12151b; border-radius:6px; }
+  .legend { font-size:12px; color:var(--dim); margin:6px 0 2px; }
+  .cx{color:var(--x)} .cy{color:var(--y)} .cz{color:var(--z)} .ch{color:var(--h)}
+  #log { height:150px; overflow:auto; font:12px ui-monospace,Menlo,monospace; background:#12151b; border-radius:6px; padding:6px; white-space:pre-wrap; }
+  .note { color:var(--dim); font-size:12px; }
+  .lapnum { font-size:42px; font-weight:700; line-height:1; }
+  #laps { max-height:220px; overflow:auto; display:block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Holyiot 21091 Recorder</h1>
+  <button id="bConnect" class="primary">Connect Holyiot</button>
+  <button id="bDisconnect" disabled>Disconnect</button>
+  <span id="link" class="pill">Not connected</span>
+</header>
+
+<main>
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Lap timing (from head turns)</h2>
+      <div class="row" style="align-items:flex-end; gap:18px">
+        <div><div class="note">Laps</div><div class="lapnum" id="lapCount">0</div></div>
+        <div><div class="note">Last lap</div><div style="font-size:22px" id="lastLap">–</div></div>
+        <div><div class="note">Turned</div><div style="font-size:22px" id="turned">0°</div></div>
+      </div>
+      <div class="row">
+        <button id="bLapStart" class="big" disabled>Start at line</button>
+        <button id="bLapStop" disabled>Stop</button>
+      </div>
+      <p class="note">Mount the sensor on the helmet. Press <b>Start at line</b> as the skater crosses the line. Every full 360° turn of the head's direction counts as one lap.</p>
+      <table id="laps"><thead><tr><th>Lap</th><th>Time</th><th>Total</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div class="panel">
+      <h2>Link quality</h2>
+      <table class="kv" id="tLink"></table>
+      <p class="note">Chrome cannot read signal strength (dBm) while connected. Range shows up here instead: as the sensor gets too far, updates per second fall and dropouts appear.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Recording</h2>
+      <div class="row">
+        <label class="note">Gyro scale <select id="sGyro"><option value="8.75">±250 °/s</option><option value="17.5">±500 °/s</option><option value="35">±1000 °/s</option><option value="70" selected>±2000 °/s</option></select></label>
+      </div>
+      <div class="row">
+        <button id="bCsv" disabled>Save / share CSV</button>
+        <button id="bCopy" disabled>Copy CSV</button>
+        <button id="bClear">Clear</button>
+      </div>
+      <table class="kv" id="tRec"></table>
+    </div>
+  </div>
+
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Heading (°, unwrapped), last 60 s</h2>
+      <canvas id="cHead"></canvas>
+      <div class="legend"><b class="ch">Heading</b> · <span id="headNow"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Accelerometer (g), last 15 s</h2>
+      <canvas id="cAcc"></canvas>
+      <div class="legend"><b class="cx">X</b> <b class="cy">Y</b> <b class="cz">Z</b> · <span id="accNow"></span> · <span id="clip"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Gyroscope (°/s), last 15 s — sent only while turning</h2>
+      <canvas id="cGyr"></canvas>
+      <div class="legend"><b class="cx">X</b> <b class="cy">Y</b> <b class="cz">Z</b> · <span id="gyrNow"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Other sensors</h2>
+      <table class="kv" id="tOther"></table>
+    </div>
+    <div class="panel">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- Holyiot factory firmware (as decoded 12 Nov 2026)
+const U = n => `6e4000${n.toString(16).padStart(2,"0")}-b5a3-f393-e0a9-e50e24dcca9e`;
+const SVC = U(1);
+const CH = { acc: 1, gyr: 2, mag: 3, baro: 4, c5: 5, temp: 6, quat: 7 };
+const ACC_G = 0.061 / 1000;          // ±2 g range, 0.061 mg per count
+
+const $ = id => document.getElementById(id);
+const fullLog = [];
+function log(msg) {
+  fullLog.push(`${new Date().toISOString()}  ${msg}`);
+  const el = $("log"); el.textContent += `${new Date().toLocaleTimeString()}  ${msg}\n`; el.scrollTop = el.scrollHeight;
+}
+function setLink(t, c) { $("link").textContent = t; $("link").className = "pill " + (c || ""); }
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " timed out")), ms))]);
+
+// ---------------------------------------------------------------- state
+let device = null, wantConnected = false, connecting = false, attempts = 0, reconnectTimer = null;
+let rows = [];                    // CSV rows
+let t0 = performance.now();
+const series = { acc: [], gyr: [], head: [] };   // [t_ms, ...]
+let last = { acc: null, gyr: null, mag: null, baro: null, c5: null, temp: null, quat: null };
+let counts = { acc: 0, gyr: 0, mag: 0, baro: 0, c5: 0, temp: 0, quat: 0 };
+let lastAccT = 0, dropouts = 0, disconnects = 0, longestGap = 0, clipCount = 0, connectedSince = 0, connectedMs = 0;
+let rateWin = [];
+// heading
+let headAxis = null, prevYaw = null, unwrapped = 0;
+// laps
+let lap = { on: false, startHead: 0, startT: 0, count: 0, times: [], lastT: 0, dir: 0 };
+
+const now = () => performance.now() - t0;
+
+// ---------------------------------------------------------------- connection
+async function connect() {
+  if (!navigator.bluetooth) { log("This browser has no Web Bluetooth. Open this file in Google Chrome."); return; }
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Holy" }, { services: [SVC] }], optionalServices: [SVC] });
+  } catch (e) { log("No sensor chosen."); return; }
+  device.addEventListener("gattserverdisconnected", onDisconnected);
+  wantConnected = true; attempts = 0; connecting = false;
+  openLink();
+}
+
+const handlers = {};
+async function openLink() {
+  if (connecting) return;
+  connecting = true; attempts++;
+  setLink(attempts > 1 ? `Reconnecting… (try ${attempts})` : "Connecting…", "warn");
+  try {
+    const server = await withTimeout(device.gatt.connect(), 8000, "Connect");
+    const svc = await withTimeout(server.getPrimaryService(SVC), 5000, "Service discovery");
+    for (const [name, n] of Object.entries(CH)) {
+      try {
+        const c = await withTimeout(svc.getCharacteristic(U(n)), 4000, "Characteristic");
+        if (!handlers[name]) handlers[name] = e => onValue(name, e.target.value);
+        c.addEventListener("characteristicvaluechanged", handlers[name]);
+        await withTimeout(c.startNotifications(), 4000, "Notify " + name);
+      } catch (e) { log(`Could not enable ${name}: ${e.message}`); }
+    }
+    connecting = false;
+    setLink("Connected", "ok");
+    log(attempts > 1 ? `Reconnected after ${attempts} tries` : `Connected to ${device.name}`);
+    attempts = 0; connectedSince = now();
+    $("bDisconnect").disabled = false;
+    $("bLapStart").disabled = false;
+  } catch (e) {
+    connecting = false;
+    if (attempts <= 3 || attempts % 10 === 0) log(`Connect attempt ${attempts} failed: ${e.message}`);
+    try { device.gatt.disconnect(); } catch (_) {}
+    if (wantConnected) scheduleReconnect();
+  }
+}
+function onDisconnected() {
+  if (connectedSince) { connectedMs += now() - connectedSince; connectedSince = 0; }
+  if (connecting) return;
+  if (wantConnected) {
+    disconnects++;
+    log("Link lost (out of range?) – reconnecting…");
+    rows.push([now().toFixed(0), "event", "disconnected"]);
+    setLink("Out of range – reconnecting…", "warn");
+    scheduleReconnect();
+  } else setLink("Not connected");
+}
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => { if (wantConnected && !connecting && !device.gatt.connected) openLink(); }, 2000);
+}
+setInterval(() => { if (wantConnected && device && !device.gatt.connected && !connecting) openLink(); }, 5000);
+function disconnect() {
+  wantConnected = false; clearTimeout(reconnectTimer);
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  setLink("Not connected"); $("bDisconnect").disabled = true;
+}
+
+// ---------------------------------------------------------------- decoding
+const i16 = (dv, o) => dv.getInt16(o, true);
+function onValue(name, dv) {
+  const t = now();
+  const hex = Array.from(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+  counts[name]++;
+  let dec = [];
+  if (name === "acc" && dv.byteLength >= 9) {
+    const a = [i16(dv, 3) * ACC_G, i16(dv, 5) * ACC_G, i16(dv, 7) * ACC_G];
+    last.acc = a; dec = a.map(v => v.toFixed(4));
+    if (a.some(v => Math.abs(v) > 1.99)) clipCount++;
+    if (lastAccT && t - lastAccT > 250) { dropouts++; longestGap = Math.max(longestGap, t - lastAccT); }
+    lastAccT = t; rateWin.push(t);
+    series.acc.push([t, ...a]);
+  } else if (name === "gyr" && dv.byteLength >= 9) {
+    const k = +$("sGyro").value / 1000;
+    const g = [i16(dv, 3) * k, i16(dv, 5) * k, i16(dv, 7) * k];
+    last.gyr = g; dec = g.map(v => v.toFixed(2)); series.gyr.push([t, ...g]);
+  } else if (name === "mag" && dv.byteLength >= 9) {
+    last.mag = [i16(dv, 3), i16(dv, 5), i16(dv, 7)]; dec = last.mag;
+  } else if (name === "baro" && dv.byteLength >= 7) {
+    last.baro = dv.getUint32(3, true); dec = [last.baro];
+  } else if (name === "temp" && dv.byteLength >= 7) {
+    last.temp = dv.getInt32(3, true) / 100; dec = [last.temp];
+  } else if (name === "c5" && dv.byteLength >= 7) {
+    last.c5 = dv.getUint32(3, true); dec = [last.c5];
+  } else if (name === "quat" && dv.byteLength >= 11) {
+    const q = [i16(dv, 3) / 32768, i16(dv, 5) / 32768, i16(dv, 7) / 32768, i16(dv, 9) / 32768];
+    last.quat = q; dec = q.map(v => v.toFixed(4));
+    const h = heading(q);
+    if (h !== null) { series.head.push([t, h]); dec.push(h.toFixed(1)); updateLaps(t, h); }
+  }
+  rows.push([t.toFixed(0), name, ...dec, hex]);
+}
+
+// rotate sensor-frame vector v by quaternion q = [w,x,y,z]
+function rotate(q, v) {
+  const [w, x, y, z] = q;
+  const R = [
+    [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+    [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+    [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]];
+  return R.map(r => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+}
+function chooseAxis() {
+  // pick the sensor axis that is most horizontal (least aligned with gravity) as the "pointer"
+  if (!last.acc) return [1, 0, 0];
+  const g = last.acc.map(Math.abs); const i = g.indexOf(Math.min(...g));
+  return [0, 1, 2].map(k => (k === i ? 1 : 0));
+}
+function heading(q) {
+  if (!headAxis) { headAxis = chooseAxis(); log(`Heading uses sensor axis ${"XYZ"[headAxis.indexOf(1)]}`); }
+  const v = rotate(q, headAxis);
+  if (Math.hypot(v[0], v[1]) < 0.3) return null;           // axis nearly vertical: heading undefined
+  const yaw = Math.atan2(v[1], v[0]) * 180 / Math.PI;
+  if (prevYaw !== null) { let d = yaw - prevYaw; if (d > 180) d -= 360; if (d < -180) d += 360; unwrapped += d; }
+  prevYaw = yaw;
+  return unwrapped;
+}
+
+// ---------------------------------------------------------------- laps
+function fmt(ms) { const s = ms / 1000; return s >= 60 ? `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}` : `${s.toFixed(1)} s`; }
+function lapStart() {
+  const h = series.head.length ? series.head[series.head.length - 1][1] : null;
+  if (h === null) { log("No heading yet – wait for orientation data."); return; }
+  lap = { on: true, startHead: h, startT: now(), count: 0, times: [], lastT: now(), dir: 0 };
+  $("laps").querySelector("tbody").innerHTML = ""; $("lapCount").textContent = "0"; $("lastLap").textContent = "–";
+  $("bLapStop").disabled = false;
+  rows.push([now().toFixed(0), "event", "lap start"]);
+  log("Lap timing started at the line.");
+}
+function lapStop() { lap.on = false; $("bLapStop").disabled = true; rows.push([now().toFixed(0), "event", "lap stop"]); log(`Lap timing stopped after ${lap.count} laps.`); }
+function updateLaps(t, h) {
+  if (!lap.on) return;
+  const turned = h - lap.startHead;
+  if (!lap.dir && Math.abs(turned) > 90) { lap.dir = Math.sign(turned); log(`Skating ${lap.dir > 0 ? "anticlockwise (heading increasing)" : "clockwise (heading decreasing)"}`); }
+  $("turned").textContent = `${Math.round(Math.abs(turned))}°`;
+  if (!lap.dir) return;
+  const n = Math.floor((turned * lap.dir) / 360);
+  while (lap.count < n) {
+    lap.count++;
+    const lt = t - lap.lastT; lap.lastT = t; lap.times.push(lt);
+    $("lapCount").textContent = lap.count; $("lastLap").textContent = fmt(lt);
+    const tr = document.createElement("tr"); tr.innerHTML = `<td>${lap.count}</td><td>${fmt(lt)}</td><td>${fmt(t - lap.startT)}</td>`;
+    $("laps").querySelector("tbody").prepend(tr);
+    rows.push([t.toFixed(0), "lap", lap.count, lt.toFixed(0), (t - lap.startT).toFixed(0)]);
+  }
+}
+
+// ---------------------------------------------------------------- display
+function render() {
+  const t = now();
+  rateWin = rateWin.filter(x => t - x < 3000);
+  const conn = connectedMs + (connectedSince ? t - connectedSince : 0);
+  $("tLink").innerHTML = [
+    ["Accel updates / s", (rateWin.length / 3).toFixed(1) + " (normal ≈ 16.7)"],
+    ["Short dropouts (>0.25 s)", dropouts], ["Longest gap", longestGap ? (longestGap / 1000).toFixed(1) + " s" : "–"],
+    ["Disconnects", disconnects], ["Connected time", fmt(conn)]].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  $("tRec").innerHTML = [["Rows", rows.length], ["Accel / gyro / orientation", `${counts.acc} / ${counts.gyr} / ${counts.quat}`],
+    ["Accel at ±2 g limit", clipCount]].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  $("tOther").innerHTML = [
+    ["Orientation (w, x, y, z)", last.quat ? last.quat.map(v => v.toFixed(3)).join(", ") : "–"],
+    ["Magnetometer (µT)", last.mag ? last.mag.join(", ") : "–"],
+    ["Pressure", last.baro ? `${last.baro} Pa` : "–"],
+    ["Temperature", last.temp !== null ? `${last.temp.toFixed(2)} °C` : "–"],
+    ["Characteristic 5 (raw)", last.c5 ?? "–"]].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  $("bCsv").disabled = !rows.length; $("bCopy").disabled = !rows.length;
+  if (last.acc) $("accNow").textContent = last.acc.map(v => v.toFixed(2)).join("  ");
+  if (last.gyr) $("gyrNow").textContent = last.gyr.map(v => v.toFixed(0)).join("  ");
+  $("clip").textContent = clipCount ? `${clipCount} readings hit the ±2 g limit` : "";
+  if (series.head.length) $("headNow").textContent = `${series.head[series.head.length - 1][1].toFixed(0)}°`;
+}
+function draw(canvas, data, spanMs, cols, colors, fixedMax) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const t = now(), from = t - spanMs;
+  const pts = data.filter(p => p[0] >= from);
+  if (!pts.length) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const p of pts) for (const c of cols) { lo = Math.min(lo, p[c]); hi = Math.max(hi, p[c]); }
+  if (fixedMax) { const m = Math.max(fixedMax, Math.abs(lo), Math.abs(hi)); lo = -m; hi = m; }
+  if (hi - lo < 1e-6) { hi += 1; lo -= 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  g.strokeStyle = "#2a2f3a"; g.beginPath(); const y0 = h - (0 - lo) / (hi - lo) * h; g.moveTo(0, y0); g.lineTo(w, y0); g.stroke();
+  cols.forEach((c, k) => {
+    g.strokeStyle = colors[k]; g.lineWidth = 1.4; g.beginPath(); let prev = null;
+    for (const p of pts) {
+      const x = (p[0] - from) / spanMs * w, y = h - (p[c] - lo) / (hi - lo) * h;
+      if (prev !== null && p[0] - prev > 400) g.moveTo(x, y); else if (prev === null) g.moveTo(x, y); else g.lineTo(x, y);
+      prev = p[0];
+    }
+    g.stroke();
+  });
+  g.fillStyle = "#8a93a6"; g.font = "11px sans-serif"; g.fillText(hi.toFixed(hi > 20 ? 0 : 2), 4, 12); g.fillText(lo.toFixed(lo < -20 ? 0 : 2), 4, h - 4);
+}
+function frame() {
+  const C = ["#ef6f6c", "#5fbf7f", "#5aa3f0"];
+  draw($("cHead"), series.head, 60000, [1], ["#e0a63a"]);
+  draw($("cAcc"), series.acc, 15000, [1, 2, 3], C, 1.2);
+  draw($("cGyr"), series.gyr, 15000, [1, 2, 3], C, 50);
+  requestAnimationFrame(frame);
+}
+setInterval(() => {
+  render();
+  const cut = now() - 70000;                                  // keep chart buffers bounded
+  for (const k in series) while (series[k].length && series[k][0][0] < cut) series[k].shift();
+}, 500);
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- CSV
+function csvText() {
+  const start = new Date(Date.now() - now()).toISOString();
+  const out = [`# Holyiot 21091 factory-firmware recording; device ${device ? device.name : ""}; t_ms counts from ${start}; accel ±2 g; gyro scale ${$("sGyro").selectedOptions[0].text} (assumed)`,
+    "# rows: t_ms,type,values...,raw_hex   types: acc(g x,y,z) gyr(dps x,y,z) mag(uT x,y,z) baro(Pa) temp(C) c5(raw) quat(w,x,y,z,heading_deg) lap(n,lap_ms,total_ms) event",
+    ...rows.map(r => r.join(",")),
+    "# ---- log ----", ...fullLog.map(l => "# " + l)];
+  return out.join("\n") + "\n";
+}
+async function saveCsv() {
+  const name = `holyiot_${new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19)}.csv`;
+  const blob = new Blob([csvText()], { type: "text/csv" });
+  try {                                                   // iPhone: share sheet (Save to Files, AirDrop, Mail)
+    const file = new File([blob], name, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); log(`Shared ${name}`); return; }
+  } catch (e) { if (e.name === "AbortError") return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  log(`Saved ${rows.length} rows to ${name} (if nothing downloaded, use Copy CSV).`);
+}
+async function copyCsv() {
+  try { await navigator.clipboard.writeText(csvText()); log("CSV copied – paste it into Notes, Mail or WhatsApp."); }
+  catch (e) { log("Copy failed: " + e.message); }
+}
+function clearAll() {
+  rows = []; for (const k in series) series[k] = []; for (const k in counts) counts[k] = 0;
+  dropouts = 0; disconnects = 0; longestGap = 0; clipCount = 0; connectedMs = 0; if (connectedSince) connectedSince = now();
+  headAxis = null; prevYaw = null; unwrapped = 0; lapStop();
+  log("Cleared.");
+}
+
+$("bConnect").onclick = connect;
+$("bDisconnect").onclick = disconnect;
+$("bLapStart").onclick = lapStart;
+$("bLapStop").onclick = lapStop;
+$("bCsv").onclick = saveCsv;
+$("bCopy").onclick = copyCsv;
+$("bClear").onclick = clearAll;
+log(navigator.bluetooth ? "Ready. Close the BLESensor app and nRF Connect first (they hold the connection), then tap Connect Holyiot." : "Web Bluetooth not available – on iPhone open this page in the Bluefy app; on a computer use Google Chrome.");
+</script>
+</body>
+</html>

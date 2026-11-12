@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkateSensor Recorder</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --line:#2a2f3a; --text:#e6e8ee; --dim:#8a93a6; --ok:#3fb97a; --warn:#e0a63a; --bad:#e2574c;
+          --x:#ef6f6c; --y:#5fbf7f; --z:#5aa3f0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:17px; margin:0 12px 0 0; }
+  main { padding:12px 16px; display:grid; gap:12px; grid-template-columns: 300px 1fr; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 8px; }
+  button { background:#2b3140; color:var(--text); border:1px solid #3a4152; border-radius:6px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover:not(:disabled) { background:#353c4e; }
+  button:disabled { opacity:.4; cursor:default; }
+  button.primary { background:#2563eb; border-color:#2563eb; }
+  button.danger { background:#5a2522; border-color:#7a302b; }
+  select, label { font:inherit; color:var(--text); }
+  select { background:#232836; border:1px solid #3a4152; border-radius:6px; padding:5px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  table.kv { width:100%; border-collapse:collapse; }
+  table.kv td { padding:3px 0; border-bottom:1px solid #222733; }
+  table.kv td:first-child { color:var(--dim); width:52%; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; background:#2b3140; }
+  .pill.ok { background:#1d4630; color:#9be3bb; } .pill.warn { background:#4a3a17; color:#f0cf86; } .pill.bad { background:#4d201d; color:#f3a69f; }
+  canvas { width:100%; height:200px; display:block; background:#12151b; border-radius:6px; }
+  .legend { font-size:12px; color:var(--dim); margin:6px 0 2px; }
+  .legend b { font-weight:600; } .cx{color:var(--x)} .cy{color:var(--y)} .cz{color:var(--z)}
+  #log { height:180px; overflow:auto; font:12px ui-monospace,Menlo,monospace; background:#12151b; border-radius:6px; padding:6px; white-space:pre-wrap; }
+  .note { color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SkateSensor Recorder</h1>
+  <button id="bConnect" class="primary">Connect sensor</button>
+  <button id="bDisconnect" disabled>Disconnect</button>
+  <span id="link" class="pill">Not connected</span>
+  <span id="devname" class="note"></span>
+</header>
+
+<main>
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Session</h2>
+      <div class="row">
+        <label>Rate <select id="sRate"><option value="0">26 Hz</option><option value="1">52 Hz</option><option value="2" selected>104 Hz</option><option value="3">208 Hz</option></select></label>
+      </div>
+      <div class="row">
+        <label>Accel <select id="sAcc"><option value="0">±2 g</option><option value="1">±4 g</option><option value="2">±8 g</option><option value="3" selected>±16 g</option></select></label>
+        <label>Gyro <select id="sGyr"><option value="0">250 °/s</option><option value="1">500 °/s</option><option value="2">1000 °/s</option><option value="3" selected>2000 °/s</option></select></label>
+      </div>
+      <div class="row"><label><input type="checkbox" id="cBeacon" checked> Lap beacons</label></div>
+      <div class="row">
+        <button id="bStart" disabled>Start</button>
+        <button id="bStop" disabled>Stop</button>
+        <button id="bIdent" disabled>Identify</button>
+      </div>
+      <div class="row">
+        <button id="bDrop" disabled>Simulate dropout</button>
+        <select id="sDrop"><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option><option value="90">90 s</option><option value="150">150 s (overflows)</option></select>
+      </div>
+      <div class="row">
+        <button id="bCsv" disabled>Save CSV</button>
+        <button id="bClear">Clear</button>
+        <button id="bOff" class="danger" disabled>Power off</button>
+      </div>
+      <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes) and the page fetches it automatically when the link comes back.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Sensor status</h2>
+      <table class="kv" id="tStatus"></table>
+    </div>
+
+    <div class="panel">
+      <h2>This recording</h2>
+      <table class="kv" id="tStats"></table>
+    </div>
+  </div>
+
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Accelerometer (g), last 10 s</h2>
+      <canvas id="cAcc"></canvas>
+      <div class="legend"><b class="cx">X</b> &nbsp; <b class="cy">Y</b> &nbsp; <b class="cz">Z</b> &nbsp; · <span id="accNow"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Gyroscope (°/s), last 10 s</h2>
+      <canvas id="cGyr"></canvas>
+      <div class="legend"><b class="cx">X</b> &nbsp; <b class="cy">Y</b> &nbsp; <b class="cz">Z</b> &nbsp; · <span id="gyrNow"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- protocol constants (SkateSensor v0.1)
+const uuid = n => `7a1e${n.toString(16).padStart(4,"0")}-5c2b-4d8e-9f10-3b6a2c4d5e60`;
+const U_SVC = uuid(1), U_DATA = uuid(2), U_CTRL = uuid(3), U_RESP = uuid(4), U_STAT = uuid(5);
+const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS = [8.75, 17.5, 35, 70];
+const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
+const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3"];
+const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
+const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF"};
+
+// ---------------------------------------------------------------- state
+let device = null, chData, chCtrl, chResp, chStat, wantConnected = false;
+let status = null;
+let rec = null;           // current recording
+function newRecording(st) {
+  return { sessionId: st ? st.sessionId : 0, rate: st ? st.rate : 2, acc: st ? st.acc : 3, gyr: st ? st.gyr : 3,
+           startEpoch: st ? st.startEpoch : 0, samples: [], times: [], received: 0, maxIdx: -1, expected: 0,
+           gaps: [], lost: 0, packets: 0, resentPackets: 0, rxStart: performance.now(), rateWin: [] };
+}
+let pendingReply = null;  // {code, resolve}
+let writeFails = 0;
+let cmdChain = Promise.resolve();
+let resendQueue = [], resendBusy = false, resendSince = 0;
+let ackTimer = null, reconnectTimer = null, dropUntil = 0, dropTick = null;
+
+const $ = id => document.getElementById(id);
+const fullLog = [];
+function log(msg, cls) {
+  const t = new Date().toLocaleTimeString();
+  fullLog.push(`${new Date().toISOString()}  ${msg}`);
+  const el = $("log"); el.textContent += `${t}  ${msg}\n`; el.scrollTop = el.scrollHeight;
+}
+function setLink(text, cls) { const p = $("link"); p.textContent = text; p.className = "pill " + (cls || ""); }
+
+// ---------------------------------------------------------------- connection
+async function connect() {
+  if (!navigator.bluetooth) { log("This browser has no Web Bluetooth. Use Chrome on Mac/PC, or Bluefy on iPhone."); return; }
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [U_SVC] }, { namePrefix: "SKS-" }],
+      optionalServices: [U_SVC, "battery_service", "device_information"] });
+  } catch (e) { log("No sensor chosen."); return; }
+  $("devname").textContent = device.name || "";
+  device.addEventListener("gattserverdisconnected", onDisconnected);
+  wantConnected = true; attempts = 0; connecting = false;
+  await openLink();
+}
+
+const hData = e => onData(e.target.value), hResp = e => onResp(e.target.value), hStat = e => onStatus(e.target.value);
+let connecting = false, attempts = 0;
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " timed out")), ms))]);
+async function openLink() {
+  if (connecting) return;
+  connecting = true; attempts++;
+  setLink(attempts > 1 ? `Reconnecting… (try ${attempts})` : "Connecting…", "warn");
+  try {
+    const server = await withTimeout(device.gatt.connect(), 8000, "Connect");
+    const svc = await withTimeout(server.getPrimaryService(U_SVC), 5000, "Service discovery");
+    [chData, chCtrl, chResp, chStat] = await withTimeout(Promise.all([U_DATA, U_CTRL, U_RESP, U_STAT].map(u => svc.getCharacteristic(u))), 5000, "Characteristic discovery");
+    resendQueue = []; resendBusy = false; pendingReply = null; cmdChain = Promise.resolve();
+    if (rec) rec.requested = rec.expected;          // re-detect any gap after reconnect
+    chData.addEventListener("characteristicvaluechanged", hData);
+    chResp.addEventListener("characteristicvaluechanged", hResp);
+    chStat.addEventListener("characteristicvaluechanged", hStat);
+    await withTimeout((async () => { await chData.startNotifications(); await chResp.startNotifications(); await chStat.startNotifications(); })(), 5000, "Enabling notifications");
+    connecting = false;
+    setLink("Connected", "ok"); log(attempts > 1 ? `Reconnected to ${device.name} after ${attempts} tries` : `Connected to ${device.name}`);
+    attempts = 0;
+    buttons(true);
+    const t = new DataView(new ArrayBuffer(8)); t.setBigUint64(0, BigInt(Date.now()), true);
+    await command(4, new Uint8Array(t.buffer));
+    onStatus(await withTimeout(chStat.readValue(), 4000, "Status read"));
+    if (status) log(`Sensor: ${STATE[status.state]}, session ${status.sessionId}, newest ${status.newest}, oldest ${status.oldest}` + (status.diag ? `, connects ${status.diag.conns}, resends ${status.diag.resends}, reply fails ${status.diag.replyFails}` : ""));
+    await command(5);
+    clearInterval(ackTimer); ackTimer = setInterval(sendAck, 5000);
+  } catch (e) {
+    connecting = false;
+    if (attempts <= 3 || attempts % 10 === 0) log(`Connect attempt ${attempts} failed: ${e.message}`);
+    try { device.gatt.disconnect(); } catch (_) {}      // clear a half-open link before retrying
+    if (wantConnected) { setLink(`Reconnecting… (try ${attempts})`, "warn"); scheduleReconnect(); }
+  }
+}
+
+function onDisconnected() {
+  buttons(false);
+  clearInterval(ackTimer);
+  if (pendingReply) { pendingReply.resolve(null); pendingReply = null; }
+  if (wantConnected) {
+    if (!connecting && attempts === 0) { setLink("Out of range – reconnecting…", "warn"); log("Link lost; sensor keeps recording. Reconnecting…"); }
+    if (!connecting) scheduleReconnect();
+  }
+  else setLink("Not connected");
+}
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  const wait = Math.max(2000, dropUntil - Date.now());
+  reconnectTimer = setTimeout(() => { if (wantConnected && device && !connecting && !device.gatt.connected) openLink(); }, wait);
+}
+function simulateDropout() {
+  if (!device || !device.gatt.connected) return;
+  const sec = +$("sDrop").value;
+  dropUntil = Date.now() + sec * 1000;
+  log(`Simulated dropout: disconnecting for ${sec} s. The sensor LED should blink red (recording while disconnected).`);
+  device.gatt.disconnect();
+  clearInterval(dropTick);
+  dropTick = setInterval(() => {
+    const left = Math.ceil((dropUntil - Date.now()) / 1000);
+    if (left > 0) setLink(`Simulated dropout – reconnecting in ${left} s`, "warn");
+    else { clearInterval(dropTick); setLink("Reconnecting…", "warn"); }
+  }, 500);
+}
+function disconnect() { wantConnected = false; clearTimeout(reconnectTimer); if (device && device.gatt.connected) device.gatt.disconnect(); setLink("Not connected"); buttons(false); }
+
+function buttons(on) {
+  for (const id of ["bStart","bStop","bIdent","bOff","bDrop"]) $(id).disabled = !on;
+  $("bDisconnect").disabled = !on && !wantConnected;
+}
+
+// ---------------------------------------------------------------- commands (one at a time, wait for reply)
+function command(code, params) {
+  const run = async () => {
+    if (!device || !device.gatt.connected) return null;
+    const body = new Uint8Array(1 + (params ? params.length : 0));
+    body[0] = code; if (params) body.set(params, 1);
+    const p = new Promise(resolve => { pendingReply = { code, resolve }; setTimeout(() => resolve(null), 3000); });
+    try { await withTimeout(chCtrl.writeValueWithResponse(body), 4000, "Write"); writeFails = 0; }
+    catch (e) {
+      log(`${CMD[code]} write failed: ${e.message}`); pendingReply = null;
+      if (++writeFails >= 2 && device.gatt.connected) { log("Bluetooth link looks stuck – forcing a reconnect"); writeFails = 0; device.gatt.disconnect(); }
+      return null;
+    }
+    const r = await p; pendingReply = null;
+    if (r === null) log(`${CMD[code]}: no reply`);
+    else if (r.result !== 0 || (code !== 7 && code !== 5 && code !== 4)) log(`${CMD[code]}: ${RESULT[r.result] || r.result}`);
+    return r;
+  };
+  cmdChain = cmdChain.then(run, run);
+  return cmdChain;
+}
+
+function onResp(dv) {
+  const code = dv.getUint8(0);
+  if (code >= 0x80 && code < 0x90) {
+    const r = { code: code - 0x80, result: dv.getUint8(1), dv };
+    if (pendingReply && pendingReply.code === r.code) pendingReply.resolve(r);
+    return;
+  }
+  if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
+  else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
+  else if (code === 0xE2) {
+    const first = dv.getUint32(1, true), count = dv.getUint32(5, true);
+    log(`Sensor buffer overflow: samples ${first}–${first + count - 1} lost`);
+    if (rec) { rec.gaps.push([first, count]); rec.lost += count; }
+  }
+}
+
+function u32(v) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; }
+
+async function start() {
+  const p = new Uint8Array([+$("sRate").value, +$("sAcc").value, +$("sGyr").value, $("cBeacon").checked ? 1 : 0]);
+  const r = await command(1, p);
+  if (r && r.result === 0) {
+    rec = newRecording({ sessionId: (status ? status.sessionId : 0) + 1, rate: p[0], acc: p[1], gyr: p[2], startEpoch: 0 });
+    log(`Session ${rec.sessionId} started`); await command(4, (() => { const t = new DataView(new ArrayBuffer(8)); t.setBigUint64(0, BigInt(Date.now()), true); return new Uint8Array(t.buffer); })()); await command(5); }
+}
+async function stop() { await command(2); setTimeout(() => command(5), 300); }
+function identify() { command(6, new Uint8Array([5])); }
+async function powerOff() { if (!confirmInline("bOff", "Tap again to power off")) return; await command(8); wantConnected = false; }
+function confirmInline(id, txt) {
+  const b = $(id);
+  if (b.dataset.armed) { delete b.dataset.armed; b.textContent = b.dataset.orig; return true; }
+  b.dataset.orig = b.textContent; b.dataset.armed = 1; b.textContent = txt;
+  setTimeout(() => { if (b.dataset.armed) { delete b.dataset.armed; b.textContent = b.dataset.orig; } }, 3000);
+  return false;
+}
+
+function sendAck() {
+  if (!rec || !device || !device.gatt.connected) return;
+  const upTo = rec.expected - 1;
+  if (upTo >= 0) command(7, u32(upTo));
+}
+
+// ---------------------------------------------------------------- status
+function onStatus(dv) {
+  if (dv.byteLength < 33) return;
+  const st = {
+    fw: `${dv.getUint8(1)}.${dv.getUint8(2)}.${dv.getUint8(3)}`, state: dv.getUint8(4),
+    rate: dv.getUint8(5), acc: dv.getUint8(6), gyr: dv.getUint8(7), sessionId: dv.getUint16(8, true),
+    newest: dv.getUint32(10, true), oldest: dv.getUint32(14, true), cap: dv.getUint32(18, true),
+    startEpoch: Number(dv.getBigInt64(22, true)), batt: dv.getUint8(30), mv: dv.getUint16(31, true),
+    imu: dv.byteLength > 33 ? dv.getUint8(33) : -1,
+    diag: dv.byteLength >= 42 ? { adv: dv.getUint8(34), advErr: dv.getUint8(35), conns: dv.getUint16(36, true), resends: dv.getUint16(38, true), replyFails: dv.getUint16(40, true) } : null };
+  if (rec && rec.sessionId && st.sessionId < rec.sessionId) log(`Warning: sensor reports session ${st.sessionId} (was ${rec.sessionId}) – it restarted or lost power, so its buffer is gone.`);
+  status = st;
+  if (st.sessionId && (!rec || rec.sessionId !== st.sessionId)) { rec = newRecording(st); log(`Session ${st.sessionId}: ${RATE[st.rate]} Hz`); }
+  else if (rec && st.startEpoch) rec.startEpoch = st.startEpoch;
+  renderStatus();
+}
+
+function renderStatus() {
+  const st = status; if (!st) return;
+  const rows = [
+    ["State", STATE[st.state] || st.state], ["Motion sensor", IMU[st.imu] ?? "?"], ["Firmware", st.fw],
+    ["Battery", `${st.batt} % (${(st.mv / 1000).toFixed(2)} V)`], ["Session", st.sessionId || "–"],
+    ["Settings", `${RATE[st.rate]} Hz, ±${[2,4,8,16][st.acc]} g, ${[250,500,1000,2000][st.gyr]} °/s`],
+    ["Newest sample", st.newest], ["Oldest buffered", st.oldest], ["Buffer", `${st.cap} samples (${(st.cap / RATE[st.rate]).toFixed(0)} s)`]];
+  if (st.diag) rows.push(["Diagnostics", `adv ${["off","slow","fast","beacon"][st.diag.adv]}, err ${st.diag.advErr}, connects ${st.diag.conns}, resends ${st.diag.resends}, reply fails ${st.diag.replyFails}`]);
+  $("tStatus").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+}
+
+// ---------------------------------------------------------------- data
+function onData(dv) {
+  const type = dv.getUint8(0), n = dv.getUint8(1), first = dv.getUint32(2, true), tms = dv.getUint32(6, true);
+  if (type === 3) { log(`Resend finished (up to ${first}); still missing: ${rec ? missingCount() : 0}`); resendBusy = false; pumpResend(); return; }
+  if (!rec) rec = newRecording(status);
+  rec.packets++; if (type === 2) rec.resentPackets++;
+  const period = 1000 / RATE[rec.rate];
+  for (let k = 0; k < n; k++) {
+    const idx = first + k, o = 10 + 12 * k;
+    if (rec.samples[idx] === undefined) {
+      const s = new Int16Array(6);
+      for (let a = 0; a < 6; a++) s[a] = dv.getInt16(o + 2 * a, true);
+      rec.samples[idx] = s; rec.times[idx] = tms + k * period; rec.received++;
+    }
+  }
+  const last = first + n - 1;
+  if (type === 1) {
+    if (rec.fresh) { rec.fresh = false; rec.expected = Math.max(rec.expected, first); }
+    const from = Math.max(rec.expected, rec.requested || 0);
+    if (first > from) requestGap(from, first - from);
+    if (last + 1 > (rec.requested || 0)) rec.requested = last + 1;
+    rec.rateWin.push([performance.now(), n]);
+  }
+  if (last > rec.maxIdx) rec.maxIdx = last;
+  // advance contiguous pointer
+  while (rec.samples[rec.expected] !== undefined) rec.expected++;
+}
+
+function missingCount() { let m = 0; for (let i = 0; i <= rec.maxIdx; i++) if (rec.samples[i] === undefined) m++; return m; }
+function requestGap(from, count) {
+  log(`Gap: ${count} samples from ${from} – asking sensor to resend`);
+  rec.gaps.push([from, count]);
+  while (count > 0) { const c = Math.min(count, 65535); resendQueue.push([from, c]); from += c; count -= c; }
+  pumpResend();
+}
+async function pumpResend() {
+  if (resendBusy || !resendQueue.length || !device || !device.gatt.connected) return;
+  const [from, count] = resendQueue.shift();
+  resendBusy = true; resendSince = Date.now();
+  const p = new Uint8Array(6); p.set(u32(from), 0); new DataView(p.buffer).setUint16(4, count, true);
+  log(`RESEND ${from}–${from + count - 1} (${count} samples) requested`);
+  const r = await command(3, p);
+  if (!r) { resendBusy = false; resendQueue.unshift([from, count]); setTimeout(pumpResend, 1000); return; }
+  if (r.result === 3) {
+    const oldest = r.dv.getUint32(2, true);
+    const lostN = Math.min(count, oldest - from);
+    log(`Samples ${from}–${from + lostN - 1} were overwritten on the sensor (lost)`);
+    for (let i = from; i < from + lostN; i++) if (rec.samples[i] === undefined) { rec.samples[i] = null; rec.lost++; }
+    while (rec.samples[rec.expected] !== undefined) rec.expected++;
+    resendBusy = false;
+    if (from + count > oldest) resendQueue.unshift([oldest, from + count - oldest]);
+    pumpResend();
+  } else if (r.result !== 0) { resendBusy = false; if (r.result === 4) resendQueue.unshift([from, count]); setTimeout(pumpResend, 500); }
+  // result 0: resendBusy cleared when end-of-resend packet arrives
+}
+
+// ---------------------------------------------------------------- stats, charts
+function renderStats() {
+  if (!rec) { $("tStats").innerHTML = ""; return; }
+  const now = performance.now();
+  rec.rateWin = rec.rateWin.filter(([t]) => now - t < 3000);
+  const live = rec.rateWin.reduce((a, [, n]) => a + n, 0) / 3;
+  const missing = Math.max(0, rec.maxIdx + 1 - rec.received - rec.lost);
+  const rows = [
+    ["Samples received", rec.received], ["Live rate", `${live.toFixed(1)} /s (set ${RATE[rec.rate]})`],
+    ["Duration", `${((rec.maxIdx + 1) / RATE[rec.rate]).toFixed(1)} s`],
+    ["Packets (resent)", `${rec.packets} (${rec.resentPackets})`], ["Gaps detected", rec.gaps.length],
+    ["Still missing", missing], ["Lost for good", rec.lost]];
+  $("tStats").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  $("bCsv").disabled = !rec.received;
+}
+
+function drawChart(canvas, axisOffset, scale, unit, nowEl) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  g.strokeStyle = "#2a2f3a"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  if (!rec || rec.maxIdx < 0) return;
+  const rate = RATE[rec.rate], span = 10 * rate, end = rec.maxIdx, startI = Math.max(0, end - span);
+  let maxAbs = 0.001;
+  for (let i = startI; i <= end; i++) { const s = rec.samples[i]; if (s) for (let a = 0; a < 3; a++) maxAbs = Math.max(maxAbs, Math.abs(s[axisOffset + a] * scale)); }
+  maxAbs *= 1.1;
+  const colors = ["#ef6f6c", "#5fbf7f", "#5aa3f0"];
+  for (let a = 0; a < 3; a++) {
+    g.strokeStyle = colors[a]; g.lineWidth = 1.3; g.beginPath(); let pen = false;
+    const step = Math.max(1, Math.floor(span / w));
+    for (let i = startI; i <= end; i += step) {
+      const s = rec.samples[i]; if (!s) { pen = false; continue; }
+      const x = (i - (end - span)) / span * w, y = h / 2 - (s[axisOffset + a] * scale) / maxAbs * (h / 2 - 4);
+      if (pen) g.lineTo(x, y); else { g.moveTo(x, y); pen = true; }
+    }
+    g.stroke();
+  }
+  g.fillStyle = "#8a93a6"; g.font = "11px sans-serif"; g.fillText(`±${maxAbs.toFixed(maxAbs < 10 ? 2 : 0)} ${unit}`, 6, 13);
+  const s = rec.samples[end];
+  if (s) nowEl.textContent = [0, 1, 2].map(a => (s[axisOffset + a] * scale).toFixed(unit === "g" ? 2 : 0)).join("  ");
+}
+
+function frame() {
+  if (rec) {
+    drawChart($("cAcc"), 0, ACC_MG[rec.acc] / 1000, "g", $("accNow"));
+    drawChart($("cGyr"), 3, GYR_MDPS[rec.gyr] / 1000, "°/s", $("gyrNow"));
+  }
+  requestAnimationFrame(frame);
+}
+setInterval(() => { renderStats(); }, 500);
+// reconnect safety net
+setInterval(() => {
+  if (wantConnected && device && !device.gatt.connected && !connecting && Date.now() > dropUntil) openLink();
+}, 5000);
+// watchdog: unstick resends and re-request any gap still open
+setInterval(() => {
+  if (!rec || !device || !device.gatt.connected) return;
+  if (resendBusy && Date.now() - resendSince > 20000) { log("Resend timed out – retrying"); resendBusy = false; }
+  if (resendBusy || resendQueue.length) { pumpResend(); return; }
+  if (rec.expected <= rec.maxIdx) {
+    let end = rec.expected;
+    while (end <= rec.maxIdx && rec.samples[end] === undefined) end++;
+    if (end > rec.expected) requestGap(rec.expected, end - rec.expected);
+  }
+}, 3000);
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- CSV
+function saveCsv() {
+  const r = rec; if (!r) return;
+  const ka = ACC_MG[r.acc] / 1000, kg = GYR_MDPS[r.gyr] / 1000;
+  const lines = [`# SkateSensor recording; device ${device ? device.name : ""}; session ${r.sessionId}; ${RATE[r.rate]} Hz; ±${[2,4,8,16][r.acc]} g; ${[250,500,1000,2000][r.gyr]} dps; session start (phone epoch ms) ${r.startEpoch}`,
+    "index,sensor_ms,phone_time_iso,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,ax_raw,ay_raw,az_raw,gx_raw,gy_raw,gz_raw,status"];
+  for (let i = 0; i <= r.maxIdx; i++) {
+    const s = r.samples[i];
+    if (!s) { lines.push(`${i},,,,,,,,,,,,,,,${s === null ? "LOST" : "MISSING"}`); continue; }
+    const t = r.times[i], iso = r.startEpoch ? new Date(r.startEpoch + t).toISOString() : "";
+    lines.push([i, t.toFixed(1), iso, (s[0]*ka).toFixed(4), (s[1]*ka).toFixed(4), (s[2]*ka).toFixed(4),
+      (s[3]*kg).toFixed(2), (s[4]*kg).toFixed(2), (s[5]*kg).toFixed(2), ...s, "ok"].join(","));
+  }
+  lines.push("# ---- recorder log ----");
+  for (const l of fullLog) lines.push("# " + l);
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv" });
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  a.href = URL.createObjectURL(blob); a.download = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  log(`Saved ${r.maxIdx + 1} rows to ${a.download}`);
+}
+
+// ---------------------------------------------------------------- wiring
+$("bConnect").onclick = connect;
+$("bDisconnect").onclick = disconnect;
+$("bStart").onclick = start;
+$("bStop").onclick = stop;
+$("bIdent").onclick = identify;
+$("bDrop").onclick = simulateDropout;
+$("bOff").onclick = powerOff;
+$("bCsv").onclick = saveCsv;
+$("bClear").onclick = () => { if (confirmInline("bClear", "Tap again to clear")) { rec = status && status.sessionId ? newRecording(status) : null; if (rec) rec.fresh = true; renderStats(); log("Cleared."); } };
+if (!navigator.bluetooth) log("Web Bluetooth is not available in this browser. Open this file in Google Chrome on Mac/PC, or in the Bluefy app on iPhone.");
+else log("Ready. Click Connect sensor.");
+</script>
+</body>
+</html>
