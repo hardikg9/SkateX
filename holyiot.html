@@ -56,7 +56,7 @@
         <button id="bLapStart" class="big" disabled>Start at line</button>
         <button id="bLapStop" disabled>Stop</button>
       </div>
-      <p class="note">Mount the sensor on the helmet. Press <b>Start at line</b> as the skater crosses the line. Every full 360° turn of the head's direction counts as one lap.</p>
+      <p class="note">Calibrate the gyro first (below). Mount the sensor on the helmet. Press <b>Start at line</b> as the skater crosses the line. Every full 360° turn of the skater's direction counts as one lap.</p>
       <table id="laps"><thead><tr><th>Lap</th><th>Time</th><th>Total</th></tr></thead><tbody></tbody></table>
     </div>
 
@@ -69,8 +69,10 @@
     <div class="panel">
       <h2>Recording</h2>
       <div class="row">
-        <label class="note">Gyro scale <select id="sGyro"><option value="8.75">±250 °/s</option><option value="17.5">±500 °/s</option><option value="35">±1000 °/s</option><option value="70" selected>±2000 °/s</option></select></label>
+        <button id="bCal" disabled>Calibrate gyro</button>
+        <span class="note" id="calInfo"></span>
       </div>
+      <p class="note" id="calHelp">Do this once: put the Holyiot flat on a table and tap Calibrate gyro.</p>
       <div class="row">
         <button id="bCsv" disabled>Save / share CSV</button>
         <button id="bCopy" disabled>Copy CSV</button>
@@ -82,7 +84,7 @@
 
   <div style="display:grid; gap:12px; align-content:start">
     <div class="panel">
-      <h2>Heading (°, unwrapped), last 60 s</h2>
+      <h2>Direction turned (°, from gyro), last 60 s</h2>
       <canvas id="cHead"></canvas>
       <div class="legend"><b class="ch">Heading</b> · <span id="headNow"></span></div>
     </div>
@@ -133,8 +135,11 @@ let last = { acc: null, gyr: null, mag: null, baro: null, c5: null, temp: null, 
 let counts = { acc: 0, gyr: 0, mag: 0, baro: 0, c5: 0, temp: 0, quat: 0 };
 let lastAccT = 0, dropouts = 0, disconnects = 0, longestGap = 0, clipCount = 0, connectedSince = 0, connectedMs = 0;
 let rateWin = [];
-// heading
-let headAxis = null, prevYaw = null, unwrapped = 0;
+// heading from gyro (the factory firmware's orientation output does not update)
+let unwrapped = 0, gLP = null, lastGyrT = 0;
+let gyroScale = 0, gyroBias = [0, 0, 0];          // mdps per count, raw-count bias
+try { const c = JSON.parse(localStorage.getItem("holyiotGyroCal") || "null"); if (c) { gyroScale = c.scale; gyroBias = c.bias; } } catch (_) {}
+let cal = null;                                   // {phase, t0, sum[], n, yawCounts, ...}
 // laps
 let lap = { on: false, startHead: 0, startT: 0, count: 0, times: [], lastT: 0, dir: 0 };
 
@@ -174,7 +179,7 @@ async function openLink() {
     log(attempts > 1 ? `Reconnected after ${attempts} tries` : `Connected to ${device.name}`);
     attempts = 0; connectedSince = now();
     $("bDisconnect").disabled = false;
-    $("bLapStart").disabled = false;
+    $("bLapStart").disabled = false; $("bCal").disabled = false;
   } catch (e) {
     connecting = false;
     if (attempts <= 3 || attempts % 10 === 0) log(`Connect attempt ${attempts} failed: ${e.message}`);
@@ -218,10 +223,21 @@ function onValue(name, dv) {
     if (lastAccT && t - lastAccT > 250) { dropouts++; longestGap = Math.max(longestGap, t - lastAccT); }
     lastAccT = t; rateWin.push(t);
     series.acc.push([t, ...a]);
+    gLP = gLP ? gLP.map((v, k) => v + 0.15 * (a[k] - v)) : a.slice();
   } else if (name === "gyr" && dv.byteLength >= 9) {
-    const k = +$("sGyro").value / 1000;
-    const g = [i16(dv, 3) * k, i16(dv, 5) * k, i16(dv, 7) * k];
-    last.gyr = g; dec = g.map(v => v.toFixed(2)); series.gyr.push([t, ...g]);
+    const raw = [i16(dv, 3), i16(dv, 5), i16(dv, 7)];
+    const k = (gyroScale || 70) / 1000;
+    const g = raw.map((v, i) => (v - gyroBias[i]) * k);
+    last.gyr = g; dec = [...g.map(v => v.toFixed(2)), ...raw]; series.gyr.push([t, ...g]);
+    const dt = lastGyrT ? Math.min(0.25, (t - lastGyrT) / 1000) : 0; lastGyrT = t;
+    if (cal) calStep(raw, dt);
+    if (gLP && dt) {
+      const n = Math.hypot(...gLP) || 1;
+      const yawRate = (g[0] * gLP[0] + g[1] * gLP[1] + g[2] * gLP[2]) / n;   // rotation about vertical, °/s
+      unwrapped += yawRate * dt;
+      series.head.push([t, unwrapped]);
+      if (gyroScale) updateLaps(t, unwrapped);
+    }
   } else if (name === "mag" && dv.byteLength >= 9) {
     last.mag = [i16(dv, 3), i16(dv, 5), i16(dv, 7)]; dec = last.mag;
   } else if (name === "baro" && dv.byteLength >= 7) {
@@ -233,8 +249,7 @@ function onValue(name, dv) {
   } else if (name === "quat" && dv.byteLength >= 11) {
     const q = [i16(dv, 3) / 32768, i16(dv, 5) / 32768, i16(dv, 7) / 32768, i16(dv, 9) / 32768];
     last.quat = q; dec = q.map(v => v.toFixed(4));
-    const h = heading(q);
-    if (h !== null) { series.head.push([t, h]); dec.push(h.toFixed(1)); updateLaps(t, h); }
+    // note: in this factory firmware the quaternion stays constant, so it is logged but not used
   }
   rows.push([t.toFixed(0), name, ...dec, hex]);
 }
@@ -264,11 +279,46 @@ function heading(q) {
   return unwrapped;
 }
 
+// ---------------------------------------------------------------- gyro calibration
+function calStart() {
+  if (cal) { calFinish(); return; }
+  cal = { phase: 1, t0: now(), sum: [0, 0, 0], n: 0, yaw: 0, still: null };
+  $("bCal").textContent = "Done – I turned it 2 times";
+  $("calHelp").innerHTML = "<b>Step 1:</b> keep it flat and completely still for 5 seconds…";
+  log("Gyro calibration: keep still.");
+}
+function calStep(raw, dt) {
+  if (cal.phase === 1) {
+    cal.sum = cal.sum.map((v, i) => v + raw[i]); cal.n++;
+    if (now() - cal.t0 > 5000 && cal.n > 20) {
+      cal.bias = cal.sum.map(v => v / cal.n); cal.g = gLP ? gLP.slice() : [0, 0, 1];
+      cal.phase = 2;
+      $("calHelp").innerHTML = "<b>Step 2:</b> now turn it <b>exactly 2 full turns</b> flat on the table (about 10 seconds), stop where it started, then tap <b>Done</b>.";
+      log(`Bias measured over ${cal.n} readings.`);
+    }
+  } else if (cal.phase === 2) {
+    const n = Math.hypot(...cal.g) || 1;
+    cal.yaw += ((raw[0] - cal.bias[0]) * cal.g[0] + (raw[1] - cal.bias[1]) * cal.g[1] + (raw[2] - cal.bias[2]) * cal.g[2]) / n * dt;
+  }
+}
+function calFinish() {
+  if (!cal || cal.phase !== 2 || Math.abs(cal.yaw) < 1000) { log("Calibration cancelled (no turning measured). Try again."); cal = null; $("bCal").textContent = "Calibrate gyro"; $("calHelp").textContent = "Put the Holyiot flat on a table and tap Calibrate gyro."; return; }
+  let scale = 720 / Math.abs(cal.yaw) * 1000;                 // mdps per count
+  const std = [8.75, 17.5, 35, 70, 140].find(v => Math.abs(scale / v - 1) < 0.15);
+  log(`Calibration: ${scale.toFixed(2)} mdps per count` + (std ? ` → using standard ${std} (±${{8.75:250,17.5:500,35:1000,70:2000,140:4000}[std]} °/s)` : " (non-standard; using measured)"));
+  gyroScale = std || scale; gyroBias = cal.bias;
+  try { localStorage.setItem("holyiotGyroCal", JSON.stringify({ scale: gyroScale, bias: gyroBias })); } catch (_) {}
+  cal = null; $("bCal").textContent = "Calibrate gyro"; $("calHelp").textContent = "Calibrated. Repeat any time the lap count looks off.";
+  showCal();
+}
+function showCal() { $("calInfo").textContent = gyroScale ? `${gyroScale.toFixed(2)} mdps/count` : "not calibrated"; }
+showCal();
+
 // ---------------------------------------------------------------- laps
 function fmt(ms) { const s = ms / 1000; return s >= 60 ? `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}` : `${s.toFixed(1)} s`; }
 function lapStart() {
-  const h = series.head.length ? series.head[series.head.length - 1][1] : null;
-  if (h === null) { log("No heading yet – wait for orientation data."); return; }
+  if (!gyroScale) { log("Calibrate the gyro first (Recording panel)."); return; }
+  const h = unwrapped;
   lap = { on: true, startHead: h, startT: now(), count: 0, times: [], lastT: now(), dir: 0 };
   $("laps").querySelector("tbody").innerHTML = ""; $("lapCount").textContent = "0"; $("lastLap").textContent = "–";
   $("bLapStop").disabled = false;
@@ -357,8 +407,9 @@ requestAnimationFrame(frame);
 // ---------------------------------------------------------------- CSV
 function csvText() {
   const start = new Date(Date.now() - now()).toISOString();
-  const out = [`# Holyiot 21091 factory-firmware recording; device ${device ? device.name : ""}; t_ms counts from ${start}; accel ±2 g; gyro scale ${$("sGyro").selectedOptions[0].text} (assumed)`,
-    "# rows: t_ms,type,values...,raw_hex   types: acc(g x,y,z) gyr(dps x,y,z) mag(uT x,y,z) baro(Pa) temp(C) c5(raw) quat(w,x,y,z,heading_deg) lap(n,lap_ms,total_ms) event",
+  const out = [`# Holyiot 21091 factory-firmware recording; device ${device ? device.name : ""}; t_ms counts from ${start}; accel ±2 g`,
+    `# gyro calibration: ${gyroScale ? gyroScale.toFixed(3) + " mdps/count, bias " + gyroBias.map(v => v.toFixed(1)).join("/") : "none (70 mdps/count assumed)"}`,
+    "# rows: t_ms,type,values...,raw_hex   types: acc(g x,y,z) gyr(dps x,y,z, raw x,y,z) mag(uT x,y,z) baro(Pa) temp(C) c5(raw) quat(w,x,y,z – frozen in factory fw) lap(n,lap_ms,total_ms) event",
     ...rows.map(r => r.join(",")),
     "# ---- log ----", ...fullLog.map(l => "# " + l)];
   return out.join("\n") + "\n";
@@ -382,13 +433,14 @@ async function copyCsv() {
 function clearAll() {
   rows = []; for (const k in series) series[k] = []; for (const k in counts) counts[k] = 0;
   dropouts = 0; disconnects = 0; longestGap = 0; clipCount = 0; connectedMs = 0; if (connectedSince) connectedSince = now();
-  headAxis = null; prevYaw = null; unwrapped = 0; lapStop();
+  unwrapped = 0; lapStop();
   log("Cleared.");
 }
 
 $("bConnect").onclick = connect;
 $("bDisconnect").onclick = disconnect;
 $("bLapStart").onclick = lapStart;
+$("bCal").onclick = calStart;
 $("bLapStop").onclick = lapStop;
 $("bCsv").onclick = saveCsv;
 $("bCopy").onclick = copyCsv;
