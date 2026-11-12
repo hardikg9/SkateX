@@ -144,7 +144,9 @@ const now = () => performance.now() - t0;
 async function connect() {
   if (!navigator.bluetooth) { log("This browser has no Web Bluetooth. Open this file in Google Chrome."); return; }
   try {
-    device = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Holy" }, { services: [SVC] }], optionalServices: [SVC] });
+    // list every nearby device: some browsers (Bluefy) miss the Holyiot with name/service filters
+    device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SVC] });
+    log(`Chosen: ${device.name || "(no name)"}`);
   } catch (e) { log("No sensor chosen."); return; }
   device.addEventListener("gattserverdisconnected", onDisconnected);
   wantConnected = true; attempts = 0; connecting = false;
