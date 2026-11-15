@@ -28,6 +28,7 @@
   table.kv td:first-child { color:var(--dim); width:52%; }
   .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; background:#2b3140; }
   .pill.ok { background:#1d4630; color:#9be3bb; } .pill.warn { background:#4a3a17; color:#f0cf86; } .pill.bad { background:#4d201d; color:#f3a69f; }
+  .mk { min-width:84px; font-weight:600; }
   canvas { width:100%; height:200px; display:block; background:#12151b; border-radius:6px; }
   .legend { font-size:12px; color:var(--dim); margin:6px 0 2px; }
   .legend b { font-weight:600; } .cx{color:var(--x)} .cy{color:var(--y)} .cz{color:var(--z)}
@@ -66,11 +67,24 @@
         <select id="sDrop"><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option><option value="90">90 s</option><option value="150">150 s (overflows)</option></select>
       </div>
       <div class="row">
-        <button id="bCsv" disabled>Save CSV</button>
+        <button id="bCsv" disabled>Save / share CSV</button>
+        <button id="bCopy" disabled>Copy CSV</button>
         <button id="bClear">Clear</button>
         <button id="bOff" class="danger" disabled>Power off</button>
       </div>
       <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes) and the page fetches it automatically when the link comes back.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Event markers</h2>
+      <div class="row">
+        <button class="mk" data-c="1">Go</button><button class="mk" data-c="2">Lap</button><button class="mk" data-c="3">Finish</button>
+      </div>
+      <div class="row">
+        <button class="mk" data-c="4">Run start</button><button class="mk" data-c="5">Run end</button><button class="mk" data-c="9">Mark</button>
+      </div>
+      <p class="note">Tap when it happens. Skaters can also <b>double-tap the helmet</b>. Markers are saved in the CSV and drawn on the charts.</p>
+      <table class="kv" id="tMarks"></table>
     </div>
 
     <div class="panel">
@@ -111,7 +125,7 @@ const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS
 const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
 const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3"];
 const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
-const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF"};
+const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK"};
 
 // ---------------------------------------------------------------- state
 let device = null, chData, chCtrl, chResp, chStat, wantConnected = false;
@@ -236,6 +250,7 @@ function command(code, params) {
     }
     const r = await p; pendingReply = null;
     if (r === null) log(`${CMD[code]}: no reply`);
+    else if (code === 9) {}
     else if (r.result !== 0 || (code !== 7 && code !== 5 && code !== 4)) log(`${CMD[code]}: ${RESULT[r.result] || r.result}`);
     return r;
   };
@@ -249,6 +264,12 @@ function onResp(dv) {
     const r = { code: code - 0x80, result: dv.getUint8(1), dv };
     if (pendingReply && pendingReply.code === r.code) pendingReply.resolve(r);
     return;
+  }
+  if (code === 0xE3) {
+    const idx = dv.getUint32(2, true);
+    const phone = rec && rec.startEpoch && rec.times[idx] !== undefined ? rec.startEpoch + rec.times[idx] : Date.now();
+    markers.push({ code: 32, idx, phone, source: "helmet" });
+    log(`Helmet double-tap at sample ${idx}`); renderMarks(); return;
   }
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
@@ -284,6 +305,27 @@ function sendAck() {
   const upTo = rec.expected - 1;
   if (upTo >= 0) command(7, u32(upTo));
 }
+
+// ---------------------------------------------------------------- markers
+const MARK = { 1: "Go", 2: "Lap", 3: "Finish", 4: "Run start", 5: "Run end", 9: "Mark", 32: "Helmet double-tap" };
+let markers = [];                                   // {code, idx, phone, source}
+async function addMark(code) {
+  const phone = Date.now();
+  const m = { code, idx: null, phone, source: "app" };
+  markers.push(m);
+  // estimate index now from the live stream, then replace with the sensor's exact index from the reply
+  if (rec && rec.maxIdx >= 0) m.idx = rec.maxIdx;
+  const r = await command(9, new Uint8Array([code]));
+  if (r && r.result === 0 && r.dv.byteLength >= 6) m.idx = r.dv.getUint32(2, true);
+  else if (r && r.result === 2) log(`${MARK[code]} noted on the phone only (no session running)`);
+  log(`Marker: ${MARK[code]} at sample ${m.idx ?? "?"}`);
+  renderMarks();
+}
+function renderMarks() {
+  const last = markers.slice(-8).reverse();
+  $("tMarks").innerHTML = last.map(m => `<tr><td>${MARK[m.code] || m.code}${m.source === "helmet" ? " (helmet)" : ""}</td><td>${new Date(m.phone).toLocaleTimeString()} · #${m.idx ?? "?"}</td></tr>`).join("");
+}
+document.querySelectorAll(".mk").forEach(b => b.onclick = () => addMark(+b.dataset.c));
 
 // ---------------------------------------------------------------- status
 function onStatus(dv) {
@@ -382,7 +424,7 @@ function renderStats() {
     ["Packets (resent)", `${rec.packets} (${rec.resentPackets})`], ["Gaps detected", rec.gaps.length],
     ["Still missing", missing], ["Lost for good", rec.lost]];
   $("tStats").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
-  $("bCsv").disabled = !rec.received;
+  $("bCsv").disabled = !rec.received; $("bCopy").disabled = !rec.received;
 }
 
 function drawChart(canvas, axisOffset, scale, unit, nowEl) {
@@ -405,6 +447,13 @@ function drawChart(canvas, axisOffset, scale, unit, nowEl) {
       if (pen) g.lineTo(x, y); else { g.moveTo(x, y); pen = true; }
     }
     g.stroke();
+  }
+  for (const m of markers) {
+    if (m.idx === null || m.idx < end - span || m.idx > end) continue;
+    const x = (m.idx - (end - span)) / span * w;
+    g.strokeStyle = m.source === "helmet" ? "#c084fc" : "#f5f5f5"; g.lineWidth = 1; g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); g.setLineDash([]);
+    g.fillStyle = g.strokeStyle; g.font = "10px sans-serif"; g.fillText(MARK[m.code] || "", x + 3, h - 6);
   }
   g.fillStyle = "#8a93a6"; g.font = "11px sans-serif"; g.fillText(`±${maxAbs.toFixed(maxAbs < 10 ? 2 : 0)} ${unit}`, 6, 13);
   const s = rec.samples[end];
@@ -437,26 +486,43 @@ setInterval(() => {
 requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------- CSV
-function saveCsv() {
-  const r = rec; if (!r) return;
+function csvText() {
+  const r = rec; if (!r) return "";
   const ka = ACC_MG[r.acc] / 1000, kg = GYR_MDPS[r.gyr] / 1000;
   const lines = [`# SkateSensor recording; device ${device ? device.name : ""}; session ${r.sessionId}; ${RATE[r.rate]} Hz; ±${[2,4,8,16][r.acc]} g; ${[250,500,1000,2000][r.gyr]} dps; session start (phone epoch ms) ${r.startEpoch}`,
-    "index,sensor_ms,phone_time_iso,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,ax_raw,ay_raw,az_raw,gx_raw,gy_raw,gz_raw,status"];
+    "index,sensor_ms,phone_time_iso,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,ax_raw,ay_raw,az_raw,gx_raw,gy_raw,gz_raw,status,marker"];
+  const mAt = {}; for (const m of markers) if (m.idx !== null) mAt[m.idx] = (mAt[m.idx] ? mAt[m.idx] + "+" : "") + (MARK[m.code] || m.code);
   for (let i = 0; i <= r.maxIdx; i++) {
     const s = r.samples[i];
-    if (!s) { lines.push(`${i},,,,,,,,,,,,,,,${s === null ? "LOST" : "MISSING"}`); continue; }
+    if (!s) { lines.push(`${i},,,,,,,,,,,,,,,${s === null ? "LOST" : "MISSING"},${mAt[i] || ""}`); continue; }
     const t = r.times[i], iso = r.startEpoch ? new Date(r.startEpoch + t).toISOString() : "";
     lines.push([i, t.toFixed(1), iso, (s[0]*ka).toFixed(4), (s[1]*ka).toFixed(4), (s[2]*ka).toFixed(4),
-      (s[3]*kg).toFixed(2), (s[4]*kg).toFixed(2), (s[5]*kg).toFixed(2), ...s, "ok"].join(","));
+      (s[3]*kg).toFixed(2), (s[4]*kg).toFixed(2), (s[5]*kg).toFixed(2), ...s, "ok", mAt[i] || ""].join(","));
   }
+  lines.push("# ---- markers: sample_index,phone_time_iso,marker,source ----");
+  for (const m of markers) lines.push(`# ${m.idx ?? ""},${new Date(m.phone).toISOString()},${MARK[m.code] || m.code},${m.source}`);
   lines.push("# ---- recorder log ----");
   for (const l of fullLog) lines.push("# " + l);
-  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv" });
-  const a = document.createElement("a");
+  return lines.join("\n") + "\n";
+}
+async function saveCsv() {
+  const r = rec; if (!r) return;
   const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
-  a.href = URL.createObjectURL(blob); a.download = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  const name = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  const blob = new Blob([csvText()], { type: "text/csv" });
+  try {                                                   // iPhone: share sheet (Save to Files, AirDrop, Mail, WhatsApp)
+    const file = new File([blob], name, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); log(`Shared ${name}`); return; }
+  } catch (e) { if (e.name === "AbortError") return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
-  log(`Saved ${r.maxIdx + 1} rows to ${a.download}`);
+  log(`Saved ${r.maxIdx + 1} rows to ${name} (if nothing downloaded, use Copy CSV).`);
+}
+async function copyCsv() {
+  if (!rec) return;
+  try { await navigator.clipboard.writeText(csvText()); log(`CSV copied (${rec.maxIdx + 1} rows) – paste it into Notes, Mail or WhatsApp.`); }
+  catch (e) { log("Copy failed: " + e.message); }
 }
 
 // ---------------------------------------------------------------- wiring
@@ -468,7 +534,8 @@ $("bIdent").onclick = identify;
 $("bDrop").onclick = simulateDropout;
 $("bOff").onclick = powerOff;
 $("bCsv").onclick = saveCsv;
-$("bClear").onclick = () => { if (confirmInline("bClear", "Tap again to clear")) { rec = status && status.sessionId ? newRecording(status) : null; if (rec) rec.fresh = true; renderStats(); log("Cleared."); } };
+$("bCopy").onclick = copyCsv;
+$("bClear").onclick = () => { if (confirmInline("bClear", "Tap again to clear")) { rec = status && status.sessionId ? newRecording(status) : null; if (rec) rec.fresh = true; markers = []; renderMarks(); renderStats(); log("Cleared."); } };
 if (!navigator.bluetooth) log("Web Bluetooth is not available in this browser. Open this file in Google Chrome on Mac/PC, or in the Bluefy app on iPhone.");
 else log("Ready. Click Connect sensor.");
 </script>
