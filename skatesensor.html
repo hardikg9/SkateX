@@ -274,9 +274,11 @@ function onResp(dv) {
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
   else if (code === 0xE2) {
+    // the sensor reports samples it dropped before they were acknowledged; most were already received live
     const first = dv.getUint32(1, true), count = dv.getUint32(5, true);
-    log(`Sensor buffer overflow: samples ${first}–${first + count - 1} lost`);
-    if (rec) { rec.gaps.push([first, count]); rec.lost += count; }
+    let lost = 0;
+    if (rec) for (let i = first; i < first + count; i++) if (rec.samples[i] === undefined) { rec.samples[i] = null; lost++; }
+    if (lost) { log(`Sensor buffer overflow: ${lost} of samples ${first}–${first + count - 1} lost`); rec.gaps.push([first, count]); rec.lost += lost; }
   }
 }
 
