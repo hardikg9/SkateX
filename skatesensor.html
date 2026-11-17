@@ -34,11 +34,27 @@
   .legend b { font-weight:600; } .cx{color:var(--x)} .cy{color:var(--y)} .cz{color:var(--z)}
   #log { height:180px; overflow:auto; font:12px ui-monospace,Menlo,monospace; background:#12151b; border-radius:6px; padding:6px; white-space:pre-wrap; }
   .note { color:var(--dim); font-size:12px; }
+  #topbar { padding:10px 16px; border-bottom:1px solid var(--line); }
+  #topbar h1 { margin-bottom:6px; }
+  .tabs { display:flex; gap:6px; margin-bottom:8px; }
+  .tab { flex:1; } .tab.on { background:#2563eb; border-color:#2563eb; }
+  .tpill { font-size:11px; opacity:.85; }
+  .slabel { font-size:15px; }
 </style>
 </head>
 <body>
-<header>
+<div id="topbar">
   <h1>SkateSensor Recorder</h1>
+  <div class="tabs"><button class="tab on" data-t="0">Sensor A <span class="tpill" id="tp0">–</span></button><button class="tab" data-t="1">Sensor B <span class="tpill" id="tp1">–</span></button></div>
+  <div class="row" style="margin:0">
+    <button id="allStart">Start both</button><button id="allStop">Stop both</button><button id="allSave">Save both CSVs</button>
+    <span class="note">Markers for both:</span><button class="mkAll" data-c="1">Go</button><button class="mkAll" data-c="2">Lap</button><button class="mkAll" data-c="3">Finish</button><button class="mkAll" data-c="9">Sync tap</button>
+  </div>
+  <p class="note" style="margin:4px 0 0">Two sensors can record at the same time. Connect each in its own tab; both keep recording whichever tab you are viewing. Each CSV is saved separately with phone-clock times, so they line up.</p>
+</div>
+<div id="s0" class="sensor"></div><div id="s1" class="sensor" style="display:none"></div>
+<template id="tpl"><header>
+  <h1 class="slabel"></h1>
   <button id="bConnect" class="primary">Connect sensor</button>
   <button id="bDisconnect" disabled>Disconnect</button>
   <span id="link" class="pill">Not connected</span>
@@ -72,7 +88,7 @@
         <button id="bClear">Clear</button>
         <button id="bOff" class="danger" disabled>Power off</button>
       </div>
-      <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes) and the page fetches it automatically when the link comes back.</p>
+      <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes on both the XIAO and the Holyiot with firmware 0.3+) and the page fetches it automatically when the link comes back.</p>
     </div>
 
     <div class="panel">
@@ -114,7 +130,7 @@
       <div id="log"></div>
     </div>
   </div>
-</main>
+</main></template>
 
 <script>
 "use strict";
@@ -127,6 +143,8 @@ const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3"];
 const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
 const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK"};
 
+// ---------------------------------------------------------------- one recorder per sensor
+function Sensor(root, label, onLink) {
 // ---------------------------------------------------------------- state
 let device = null, chData, chCtrl, chResp, chStat, wantConnected = false;
 let status = null;
@@ -142,14 +160,14 @@ let cmdChain = Promise.resolve();
 let resendQueue = [], resendBusy = false, resendSince = 0;
 let ackTimer = null, reconnectTimer = null, dropUntil = 0, dropTick = null;
 
-const $ = id => document.getElementById(id);
+const $ = id => root.querySelector("#" + id);
 const fullLog = [];
 function log(msg, cls) {
   const t = new Date().toLocaleTimeString();
   fullLog.push(`${new Date().toISOString()}  ${msg}`);
   const el = $("log"); el.textContent += `${t}  ${msg}\n`; el.scrollTop = el.scrollHeight;
 }
-function setLink(text, cls) { const p = $("link"); p.textContent = text; p.className = "pill " + (cls || ""); }
+function setLink(text, cls) { const p = $("link"); p.textContent = text; p.className = "pill " + (cls || ""); onLink(text, cls); }
 
 // ---------------------------------------------------------------- connection
 async function connect() {
@@ -327,7 +345,7 @@ function renderMarks() {
   const last = markers.slice(-8).reverse();
   $("tMarks").innerHTML = last.map(m => `<tr><td>${MARK[m.code] || m.code}${m.source === "helmet" ? " (helmet)" : ""}</td><td>${new Date(m.phone).toLocaleTimeString()} · #${m.idx ?? "?"}</td></tr>`).join("");
 }
-document.querySelectorAll(".mk").forEach(b => b.onclick = () => addMark(+b.dataset.c));
+root.querySelectorAll(".mk").forEach(b => b.onclick = () => addMark(+b.dataset.c));
 
 // ---------------------------------------------------------------- status
 function onStatus(dv) {
@@ -363,7 +381,12 @@ function onData(dv) {
   if (type === 3) { log(`Resend finished (up to ${first}); still missing: ${rec ? missingCount() : 0}`); resendBusy = false; pumpResend(); return; }
   if (!rec) rec = newRecording(status);
   rec.packets++; if (type === 2) rec.resentPackets++;
-  const period = 1000 / RATE[rec.rate];
+  // real sample period from the sensor's own packet times (sensor clocks run a few % off nominal)
+  if (type === 1 && n) {
+    if (!rec.pRef) rec.pRef = [first, tms];
+    else if (first - rec.pRef[0] >= 500 && tms > rec.pRef[1]) rec.pEst = (tms - rec.pRef[1]) / (first - rec.pRef[0]);
+  }
+  const period = rec.pEst || 1000 / RATE[rec.rate];
   for (let k = 0; k < n; k++) {
     const idx = first + k, o = 10 + 12 * k;
     if (rec.samples[idx] === undefined) {
@@ -421,7 +444,7 @@ function renderStats() {
   const live = rec.rateWin.reduce((a, [, n]) => a + n, 0) / 3;
   const missing = Math.max(0, rec.maxIdx + 1 - rec.received - rec.lost);
   const rows = [
-    ["Samples received", rec.received], ["Live rate", `${live.toFixed(1)} /s (set ${RATE[rec.rate]})`],
+    ["Samples received", rec.received], ["Live rate", `${live.toFixed(1)} /s (set ${RATE[rec.rate]}${rec.pEst ? `, sensor clock ${(1000 / rec.pEst).toFixed(1)} Hz` : ""})`],
     ["Duration", `${((rec.maxIdx + 1) / RATE[rec.rate]).toFixed(1)} s`],
     ["Packets (resent)", `${rec.packets} (${rec.resentPackets})`], ["Gaps detected", rec.gaps.length],
     ["Still missing", missing], ["Lost for good", rec.lost]];
@@ -540,6 +563,35 @@ $("bCopy").onclick = copyCsv;
 $("bClear").onclick = () => { if (confirmInline("bClear", "Tap again to clear")) { rec = status && status.sessionId ? newRecording(status) : null; if (rec) rec.fresh = true; markers = []; renderMarks(); renderStats(); log("Cleared."); } };
 if (!navigator.bluetooth) log("Web Bluetooth is not available in this browser. Open this file in Google Chrome on Mac/PC, or in the Bluefy app on iPhone.");
 else log("Ready. Click Connect sensor.");
+
+  return {
+    start: () => (device && device.gatt.connected ? start() : null),
+    stop:  () => (device && device.gatt.connected ? stop() : null),
+    save:  () => (rec ? saveCsv() : null),
+    mark:  c  => (device && device.gatt.connected ? addMark(c) : null),
+    name:  () => (device ? device.name : "")
+  };
+}
+
+// ---------------------------------------------------------------- two sensors side by side
+const sensors = [0, 1].map(i => {
+  const root = document.getElementById("s" + i);
+  root.appendChild(document.getElementById("tpl").content.cloneNode(true));
+  const label = i ? "Sensor B" : "Sensor A";
+  root.querySelector(".slabel").textContent = label;
+  root.querySelector("#bConnect").textContent = "Connect " + label;
+  return Sensor(root, label, (text, cls) => { const t = document.getElementById("tp" + i); t.textContent = text; });
+});
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  const t = +b.dataset.t;
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
+  [0, 1].forEach(i => { document.getElementById("s" + i).style.display = i === t ? "" : "none"; });
+  window.dispatchEvent(new Event("resize"));
+});
+document.getElementById("allStart").onclick = async () => { for (const s of sensors) await s.start(); };
+document.getElementById("allStop").onclick  = async () => { for (const s of sensors) await s.stop(); };
+document.getElementById("allSave").onclick  = async () => { for (const s of sensors) await s.save(); };
+document.querySelectorAll(".mkAll").forEach(b => b.onclick = () => sensors.forEach(s => s.mark(+b.dataset.c)));
 </script>
 </body>
 </html>
