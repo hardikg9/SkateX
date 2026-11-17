@@ -99,7 +99,7 @@
       <div class="row">
         <button class="mk" data-c="4">Run start</button><button class="mk" data-c="5">Run end</button><button class="mk" data-c="9">Mark</button>
       </div>
-      <p class="note">Tap when it happens. Skaters can also <b>double-tap the helmet</b>. Markers are saved in the CSV and drawn on the charts.</p>
+      <p class="note">Tap when it happens. Markers are saved in the CSV and drawn on the charts.</p>
       <table class="kv" id="tMarks"></table>
     </div>
 
@@ -283,12 +283,7 @@ function onResp(dv) {
     if (pendingReply && pendingReply.code === r.code) pendingReply.resolve(r);
     return;
   }
-  if (code === 0xE3) {
-    const idx = dv.getUint32(2, true);
-    const phone = rec && rec.startEpoch && rec.times[idx] !== undefined ? rec.startEpoch + rec.times[idx] : Date.now();
-    markers.push({ code: 32, idx, phone, source: "helmet" });
-    log(`Helmet double-tap at sample ${idx}`); renderMarks(); return;
-  }
+  if (code === 0xE3) return;                               // helmet double-tap: feature removed, ignore old firmware
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
   else if (code === 0xE2) {
@@ -307,6 +302,7 @@ async function start() {
   const r = await command(1, p);
   if (r && r.result === 0) {
     rec = newRecording({ sessionId: (status ? status.sessionId : 0) + 1, rate: p[0], acc: p[1], gyr: p[2], startEpoch: 0 });
+    markers = []; renderMarks();                          // markers belong to one session only
     log(`Session ${rec.sessionId} started`); await command(4, (() => { const t = new DataView(new ArrayBuffer(8)); t.setBigUint64(0, BigInt(Date.now()), true); return new Uint8Array(t.buffer); })()); await command(5); }
 }
 async function stop() { await command(2); setTimeout(() => command(5), 300); }
@@ -359,7 +355,7 @@ function onStatus(dv) {
     diag: dv.byteLength >= 42 ? { adv: dv.getUint8(34), advErr: dv.getUint8(35), conns: dv.getUint16(36, true), resends: dv.getUint16(38, true), replyFails: dv.getUint16(40, true) } : null };
   if (rec && rec.sessionId && st.sessionId < rec.sessionId) log(`Warning: sensor reports session ${st.sessionId} (was ${rec.sessionId}) – it restarted or lost power, so its buffer is gone.`);
   status = st;
-  if (st.sessionId && (!rec || rec.sessionId !== st.sessionId)) { rec = newRecording(st); log(`Session ${st.sessionId}: ${RATE[st.rate]} Hz`); }
+  if (st.sessionId && (!rec || rec.sessionId !== st.sessionId)) { rec = newRecording(st); markers = []; renderMarks(); log(`Session ${st.sessionId}: ${RATE[st.rate]} Hz`); }
   else if (rec && st.startEpoch) rec.startEpoch = st.startEpoch;
   renderStatus();
 }
