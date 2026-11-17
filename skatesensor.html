@@ -530,6 +530,12 @@ function csvText() {
   for (const l of fullLog) lines.push("# " + l);
   return lines.join("\n") + "\n";
 }
+function csvFile() {
+  const r = rec; if (!r) return null;
+  const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  const name = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  return new File([csvText()], name, { type: "text/csv" });
+}
 async function saveCsv() {
   const r = rec; if (!r) return;
   const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
@@ -568,6 +574,8 @@ else log("Ready. Click Connect sensor.");
     start: () => (device && device.gatt.connected ? start() : null),
     stop:  () => (device && device.gatt.connected ? stop() : null),
     save:  () => (rec ? saveCsv() : null),
+    file:  () => csvFile(),
+    log,
     mark:  c  => (device && device.gatt.connected ? addMark(c) : null),
     name:  () => (device ? device.name : "")
   };
@@ -590,7 +598,23 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
 });
 document.getElementById("allStart").onclick = async () => { for (const s of sensors) await s.start(); };
 document.getElementById("allStop").onclick  = async () => { for (const s of sensors) await s.stop(); };
-document.getElementById("allSave").onclick  = async () => { for (const s of sensors) await s.save(); };
+// one share sheet with both files (iPhone allows only one share per tap)
+document.getElementById("allSave").onclick = async () => {
+  const files = sensors.map(s => s.file()).filter(Boolean);
+  if (!files.length) return;
+  try {
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files, title: "SkateSensor recordings" });
+      sensors.forEach(s => s.log(`Shared ${files.map(f => f.name).join(" + ")}`));
+      return;
+    }
+  } catch (e) { if (e.name === "AbortError") return; }
+  for (const f of files) {                                  // desktop: plain downloads
+    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 400));
+  }
+};
 document.querySelectorAll(".mkAll").forEach(b => b.onclick = () => sensors.forEach(s => s.mark(+b.dataset.c)));
 </script>
 </body>
