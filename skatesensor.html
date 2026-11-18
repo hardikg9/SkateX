@@ -40,19 +40,91 @@
   .tab { flex:1; } .tab.on { background:#2563eb; border-color:#2563eb; }
   .tpill { font-size:11px; opacity:.85; }
   .slabel { font-size:15px; }
+  #walk main { grid-template-columns: 320px 1fr; }
+  #walk .wk { min-width:96px; font-weight:600; }
+  #wmap { height:340px; }
+  table.seg { width:100%; border-collapse:collapse; font-size:13px; }
+  table.seg th, table.seg td { text-align:left; padding:4px 6px; border-bottom:1px solid #222733; }
+  table.seg th { color:var(--dim); font-weight:500; }
+  .big { font-size:22px; font-weight:600; }
 </style>
 </head>
 <body>
 <div id="topbar">
   <h1>SkateSensor Recorder</h1>
-  <div class="tabs"><button class="tab on" data-t="0">Sensor A <span class="tpill" id="tp0">–</span></button><button class="tab" data-t="1">Sensor B <span class="tpill" id="tp1">–</span></button></div>
-  <div class="row" style="margin:0">
+  <div class="tabs"><button class="tab on" data-t="0">Sensor A <span class="tpill" id="tp0">–</span></button><button class="tab" data-t="1">Sensor B <span class="tpill" id="tp1">–</span></button><button class="tab" data-t="2">Rink walk <span class="tpill" id="tp2">GPS</span></button></div>
+  <div class="row" id="sensorBar" style="margin:0">
     <button id="allStart">Start both</button><button id="allStop">Stop both</button><button id="allSave">Save both CSVs</button>
     <span class="note">Markers for both:</span><button class="mkAll" data-c="1">Go</button><button class="mkAll" data-c="2">Lap</button><button class="mkAll" data-c="3">Finish</button><button class="mkAll" data-c="9">Sync tap</button>
   </div>
-  <p class="note" style="margin:4px 0 0">Two sensors can record at the same time. Connect each in its own tab; both keep recording whichever tab you are viewing. Each CSV is saved separately with phone-clock times, so they line up.</p>
+  <p class="note" id="sensorNote" style="margin:4px 0 0">Two sensors can record at the same time. Connect each in its own tab; both keep recording whichever tab you are viewing. Each CSV is saved separately with phone-clock times, so they line up.</p>
 </div>
 <div id="s0" class="sensor"></div><div id="s1" class="sensor" style="display:none"></div>
+<div id="walk" style="display:none">
+<main>
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Rink walk (phone GPS)</h2>
+      <div class="row"><label>Rink <input id="wRink" placeholder="e.g. MM" style="width:120px;background:#232836;border:1px solid #3a4152;border-radius:6px;padding:5px;color:var(--text)"></label></div>
+      <div class="row">
+        <button id="wStart" class="primary">Start walk</button>
+        <button id="wStop" disabled>Stop walk</button>
+        <span id="wGps" class="pill">GPS off</span>
+      </div>
+      <p class="note" style="margin:0">Walk the line the skaters race on (close to the inside edge), at a steady pace, phone held in front of you.
+      Walk at least 2 full laps. At each point, stop for 3 seconds, then press the mark.</p>
+    </div>
+    <div class="panel">
+      <h2>Marks</h2>
+      <div class="row">
+        <button class="wk" data-k="start">Start line</button><button class="wk" data-k="finish">Finish line</button>
+      </div>
+      <div class="row">
+        <button class="wk" data-k="turn_in">Turn begins</button><button class="wk" data-k="turn_out">Turn ends</button>
+      </div>
+      <div class="row">
+        <button class="wk" data-k="phone">Parent / phone spot</button><button class="wk" data-k="other">Other point</button>
+        <button id="wUndo">Undo last mark</button>
+      </div>
+      <p class="note" style="margin:0">Mark "Start line" every time you cross it: the distance between two Start-line marks is the lap length.
+      Mark where each turn begins and ends to measure the straights.</p>
+    </div>
+    <div class="panel">
+      <h2>Now</h2>
+      <table class="kv">
+        <tr><td>Distance walked</td><td id="wDist" class="big">–</td></tr>
+        <tr><td>GPS accuracy</td><td id="wAcc">–</td></tr>
+        <tr><td>Fixes used / received</td><td id="wFix">–</td></tr>
+        <tr><td>Walk time</td><td id="wTime">–</td></tr>
+        <tr><td>Marks</td><td id="wMarks">–</td></tr>
+      </table>
+      <div class="row" style="margin-top:10px">
+        <button id="wSave" disabled>Save / share walk</button>
+        <button id="wClear">Clear</button>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid; gap:12px; align-content:start">
+    <div class="panel">
+      <h2>Lap length</h2>
+      <div id="wLap" class="note">Mark "Start line" (or "Finish line") on two passes to get the lap length.</div>
+    </div>
+    <div class="panel">
+      <h2>Map</h2>
+      <canvas id="wmap"></canvas>
+      <div class="legend">Track: grey raw, white smoothed. <b style="color:#3fb97a">S</b> start <b style="color:#e2574c">F</b> finish <b style="color:#e0a63a">T</b> turn begins/ends <b style="color:#5aa3f0">P</b> phone spot</div>
+    </div>
+    <div class="panel">
+      <h2>Between marks (along your path)</h2>
+      <div id="wSeg" class="note">No marks yet.</div>
+    </div>
+    <div class="panel">
+      <h2>Walk log</h2>
+      <div id="wLog" style="height:120px;overflow:auto;font:12px ui-monospace,Menlo,monospace;background:#12151b;border-radius:6px;padding:6px;white-space:pre-wrap"></div>
+    </div>
+  </div>
+</main>
+</div>
 <template id="tpl"><header>
   <h1 class="slabel"></h1>
   <button id="bConnect" class="primary">Connect sensor</button>
@@ -601,6 +673,10 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   const t = +b.dataset.t;
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
   [0, 1].forEach(i => { document.getElementById("s" + i).style.display = i === t ? "" : "none"; });
+  document.getElementById("walk").style.display = t === 2 ? "" : "none";
+  document.getElementById("sensorBar").style.display = t === 2 ? "none" : "";
+  document.getElementById("sensorNote").style.display = t === 2 ? "none" : "";
+  if (t === 2) RinkWalk.draw();
   window.dispatchEvent(new Event("resize"));
 });
 document.getElementById("allStart").onclick = async () => { for (const s of sensors) await s.start(); };
@@ -623,6 +699,189 @@ document.getElementById("allSave").onclick = async () => {
   }
 };
 document.querySelectorAll(".mkAll").forEach(b => b.onclick = () => sensors.forEach(s => s.mark(+b.dataset.c)));
+
+// ---------------------------------------------------------------- rink walk (phone GPS)
+const RinkWalk = (() => {
+  const KEY = "skatesensor.walk.v1";
+  const NAMES = { start: "Start line", finish: "Finish line", turn_in: "Turn begins", turn_out: "Turn ends", phone: "Parent / phone spot", other: "Other point" };
+  const COL = { start: "#3fb97a", finish: "#e2574c", turn_in: "#e0a63a", turn_out: "#e0a63a", phone: "#5aa3f0", other: "#c9cdd6" };
+  const LET = { start: "S", finish: "F", turn_in: "T", turn_out: "T", phone: "P", other: "•" };
+  const MAX_ACC = 20, MAX_SPEED = 4;          // m, m/s (walking)
+  const g = id => document.getElementById(id);
+  let W = { rink: "", startedAt: null, endedAt: null, fixes: [], marks: [] };
+  let watchId = null, wakeLock = null, tick = null, lastAcc = null;
+  const log = m => { const el = g("wLog"); el.textContent += `${new Date().toLocaleTimeString()}  ${m}\n`; el.scrollTop = el.scrollHeight; };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(W)); } catch (e) {} };
+  try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); if (o && o.fixes) W = o; } catch (e) {}
+
+  // local metres around the first good fix
+  function proj(f, o) { const R = 6371008.8, k = Math.PI / 180;
+    return [(f.lon - o.lon) * k * R * Math.cos(o.lat * k), (f.lat - o.lat) * k * R]; }
+  function track() {
+    const good = W.fixes.filter(f => f.acc <= MAX_ACC);
+    if (good.length < 2) return { pts: [], raw: [], cum: [], t: [] };
+    const o = good[0];
+    let raw = good.map(f => ({ t: f.t, p: proj(f, o), acc: f.acc }));
+    const keep = [raw[0]];                                         // drop jumps faster than walking
+    for (const q of raw.slice(1)) { const l = keep[keep.length - 1];
+      const d = Math.hypot(q.p[0] - l.p[0], q.p[1] - l.p[1]), dt = (q.t - l.t) / 1000;
+      if (dt > 0 && d / dt <= MAX_SPEED + l.acc / Math.max(dt, 1)) keep.push(q); }
+    raw = keep;
+    const n = 3, pts = raw.map((_, i) => {                         // 7-point moving average, weighted by accuracy
+      let sx = 0, sy = 0, sw = 0;
+      for (let j = Math.max(0, i - n); j <= Math.min(raw.length - 1, i + n); j++) { const w = 1 / (raw[j].acc * raw[j].acc);
+        sx += raw[j].p[0] * w; sy += raw[j].p[1] * w; sw += w; }
+      return [sx / sw, sy / sw]; });
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { pts, raw: raw.map(r => r.p), cum, t: raw.map(r => r.t) };
+  }
+  function at(T, tm) {                                             // path distance and point at time tm
+    if (!T.t.length) return null;
+    let i = T.t.findIndex(x => x >= tm);
+    if (i < 0) i = T.t.length - 1;
+    if (i === 0) return { d: T.cum[0], p: T.pts[0] };
+    const a = T.t[i - 1], b = T.t[i], w = b > a ? Math.min(1, Math.max(0, (tm - a) / (b - a))) : 1;
+    return { d: T.cum[i - 1] + w * (T.cum[i] - T.cum[i - 1]),
+             p: [T.pts[i - 1][0] + w * (T.pts[i][0] - T.pts[i - 1][0]), T.pts[i - 1][1] + w * (T.pts[i][1] - T.pts[i - 1][1])] };
+  }
+  function summary() {
+    const T = track();
+    const marks = W.marks.map(m => Object.assign({}, m, at(T, m.t) || {}));
+    const laps = {};
+    for (const k of ["start", "finish"]) {
+      const ms = marks.filter(m => m.kind === k && m.d != null);
+      laps[k] = ms.slice(1).map((m, i) => m.d - ms[i].d);
+    }
+    const all = laps.start.concat(laps.finish);
+    const lap = all.length ? all.reduce((a, b) => a + b, 0) / all.length : null;
+    const segs = marks.slice(1).map((m, i) => ({ from: marks[i].kind, to: m.kind, m: m.d - marks[i].d,
+      straight: marks[i].kind === "turn_out" && m.kind === "turn_in", turn: marks[i].kind === "turn_in" && m.kind === "turn_out" }));
+    return { T, marks, laps, lap, segs, total: T.cum.length ? T.cum[T.cum.length - 1] : 0 };
+  }
+  const fmt = m => m == null || isNaN(m) ? "–" : `${m.toFixed(1)} m`;
+  function render() {
+    const S = summary();
+    g("wDist").textContent = W.fixes.length ? fmt(S.total) : "–";
+    g("wAcc").textContent = lastAcc == null ? "–" : `± ${lastAcc.toFixed(0)} m${lastAcc > MAX_ACC ? " (too rough, not used)" : ""}`;
+    g("wFix").textContent = `${S.T.pts.length} / ${W.fixes.length}`;
+    const end = W.endedAt || (W.startedAt ? Date.now() : null);
+    g("wTime").textContent = W.startedAt ? `${Math.round((end - W.startedAt) / 1000)} s` : "–";
+    g("wMarks").textContent = W.marks.length ? W.marks.map(m => LET[m.kind]).join(" ") : "–";
+    g("wSave").disabled = !W.fixes.length;
+    const lines = [];
+    for (const k of ["start", "finish"]) if (S.laps[k].length) lines.push(`${NAMES[k]} to ${NAMES[k]}: ${S.laps[k].map(x => x.toFixed(1) + " m").join(", ")}`);
+    g("wLap").innerHTML = S.lap ? `<div class="big">${S.lap.toFixed(1)} m</div><div class="note">${lines.join("<br>")}${S.laps.start.length + S.laps.finish.length > 1 ? "" : "<br>Walk another lap and mark again to check it."}</div>` :
+      `Mark "Start line" (or "Finish line") on two passes to get the lap length.`;
+    if (!S.segs.length) g("wSeg").innerHTML = "No marks yet.";
+    else {
+      const st = S.segs.filter(x => x.straight).map(x => x.m), tu = S.segs.filter(x => x.turn).map(x => x.m);
+      const avg = a => a.length ? (a.reduce((p, q) => p + q, 0) / a.length).toFixed(1) + " m" : "–";
+      g("wSeg").innerHTML = `<table class="seg"><tr><th>From</th><th>To</th><th>Distance</th><th></th></tr>` +
+        S.segs.map(x => `<tr><td>${NAMES[x.from]}</td><td>${NAMES[x.to]}</td><td>${fmt(x.m)}</td><td class="note">${x.straight ? "straight" : x.turn ? "turn" : ""}</td></tr>`).join("") +
+        `</table><p class="note">Straights average ${avg(st)} · turns average ${avg(tu)}</p>`;
+    }
+    draw(S);
+  }
+  function draw(S) {
+    const c = g("wmap"); if (!c || !c.offsetWidth) return;
+    S = S || summary();
+    const dpr = window.devicePixelRatio || 1; c.width = c.offsetWidth * dpr; c.height = c.offsetHeight * dpr;
+    const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = c.offsetWidth, h = c.offsetHeight; x.clearRect(0, 0, w, h);
+    const P = S.T.raw.concat(S.T.pts);
+    if (P.length < 2) { x.fillStyle = "#8a93a6"; x.fillText("Track appears here once GPS fixes arrive.", 12, 20); return; }
+    const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const sc = Math.min((w - 30) / Math.max(x1 - x0, 1), (h - 30) / Math.max(y1 - y0, 1));
+    const X = p => 15 + (p[0] - x0) * sc + ((w - 30) - (x1 - x0) * sc) / 2, Y = p => h - 15 - (p[1] - y0) * sc - ((h - 30) - (y1 - y0) * sc) / 2;
+    const line = (pts, col, lw) => { x.strokeStyle = col; x.lineWidth = lw; x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(X(p), Y(p)) : x.moveTo(X(p), Y(p))); x.stroke(); };
+    line(S.T.raw, "#3a4152", 1); line(S.T.pts, "#e6e8ee", 2);
+    // 10 m scale bar
+    x.strokeStyle = "#8a93a6"; x.lineWidth = 2; x.beginPath(); x.moveTo(15, h - 8); x.lineTo(15 + 10 * sc, h - 8); x.stroke();
+    x.fillStyle = "#8a93a6"; x.font = "11px sans-serif"; x.fillText("10 m", 20 + 10 * sc, h - 4);
+    for (const m of S.marks) if (m.p) { x.fillStyle = COL[m.kind]; x.beginPath(); x.arc(X(m.p), Y(m.p), 6, 0, 7); x.fill();
+      x.fillStyle = "#0f1115"; x.font = "bold 9px sans-serif"; x.fillText(LET[m.kind], X(m.p) - 3, Y(m.p) + 3); }
+  }
+  function feed(pos) {                                             // also used by tests
+    const c = pos.coords;
+    lastAcc = c.accuracy;
+    W.fixes.push({ t: pos.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
+                   alt: c.altitude, speed: c.speed, heading: c.heading });
+    const p = g("wGps"); p.textContent = `GPS ± ${c.accuracy.toFixed(0)} m`; p.className = "pill " + (c.accuracy <= 8 ? "ok" : c.accuracy <= MAX_ACC ? "warn" : "bad");
+    g("tp2").textContent = `± ${c.accuracy.toFixed(0)} m`;
+    persist(); render();
+  }
+  async function start() {
+    if (!navigator.geolocation) { log("This browser has no location access. Open this page in Safari or Chrome."); return; }
+    const resuming = W.startedAt && !W.endedAt;                  // restored after a reload: carry on
+    if (!resuming) W = { rink: g("wRink").value.trim(), startedAt: Date.now(), endedAt: null, fixes: [], marks: [] };
+    W.rink = g("wRink").value.trim();
+    if (resuming) log("Continuing the walk.");
+    log("Asking for location… allow it if the phone asks.");
+    watchId = navigator.geolocation.watchPosition(feed, e => {
+      log(`Location error: ${e.message || e.code}${e.code === 1 ? " — allow location for this browser in phone Settings" : ""}`);
+      const p = g("wGps"); p.textContent = "GPS error"; p.className = "pill bad";
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    g("wStart").disabled = true; g("wStop").disabled = false;
+    clearInterval(tick); tick = setInterval(render, 1000);
+    persist(); render();
+  }
+  function stop() {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; W.endedAt = Date.now();
+    try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null;
+    clearInterval(tick);
+    g("wStart").disabled = false; g("wStop").disabled = true;
+    const p = g("wGps"); p.textContent = "GPS off"; p.className = "pill"; g("tp2").textContent = "GPS";
+    log(`Walk stopped: ${W.fixes.length} fixes, ${W.marks.length} marks.`);
+    persist(); render();
+  }
+  function mark(kind) {
+    if (!W.startedAt || W.endedAt) { log("Start the walk first."); return; }
+    W.marks.push({ kind, t: Date.now() });
+    if (navigator.vibrate) navigator.vibrate(60);
+    const S = summary(), m = S.marks[S.marks.length - 1];
+    log(`${NAMES[kind]} at ${fmt(m.d)}${lastAcc != null ? ` (GPS ± ${lastAcc.toFixed(0)} m)` : ""}`);
+    persist(); render();
+  }
+  function fileOut() {
+    const S = summary();
+    const stamp = new Date(W.startedAt || Date.now()).toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    const out = { format: "skatesensor-rink-walk", version: 1, rink: W.rink || g("wRink").value.trim(), startedAt: W.startedAt, endedAt: W.endedAt,
+      device: navigator.userAgent,
+      summary: { lapLengthM: S.lap && +S.lap.toFixed(1), lapsBetweenStartMarksM: S.laps.start.map(x => +x.toFixed(1)),
+                 lapsBetweenFinishMarksM: S.laps.finish.map(x => +x.toFixed(1)), totalWalkedM: +S.total.toFixed(1),
+                 segments: S.segs.map(x => ({ from: x.from, to: x.to, m: +x.m.toFixed(1), type: x.straight ? "straight" : x.turn ? "turn" : "" })),
+                 settings: { maxAccuracyM: MAX_ACC, maxSpeedMs: MAX_SPEED, smoothing: "7-point, accuracy-weighted" } },
+      marks: S.marks.map(m => ({ kind: m.kind, t: m.t, alongM: m.d == null ? null : +m.d.toFixed(1),
+        lat: (() => { const f = W.fixes.filter(q => q.acc <= MAX_ACC); if (!f.length) return null; return f.reduce((a, b) => Math.abs(b.t - m.t) < Math.abs(a.t - m.t) ? b : a).lat; })(),
+        lon: (() => { const f = W.fixes.filter(q => q.acc <= MAX_ACC); if (!f.length) return null; return f.reduce((a, b) => Math.abs(b.t - m.t) < Math.abs(a.t - m.t) ? b : a).lon; })() })),
+      fixes: W.fixes };
+    const name = `rinkwalk_${(out.rink || "rink").replace(/\W+/g, "-")}_${stamp}.json`;
+    return new File([JSON.stringify(out, null, 1)], name, { type: "application/json" });
+  }
+  async function save() {
+    const f = fileOut();
+    try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: f.name }); log(`Shared ${f.name}`); return; } }
+    catch (e) { if (e.name === "AbortError") return; }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); log(`Saved ${f.name}`);
+  }
+  let clearArmed = 0;
+  g("wStart").onclick = start; g("wStop").onclick = stop; g("wSave").onclick = save;
+  g("wUndo").onclick = () => { const m = W.marks.pop(); if (m) log(`Removed ${NAMES[m.kind]}`); persist(); render(); };
+  g("wClear").onclick = () => { if (Date.now() - clearArmed > 3000) { clearArmed = Date.now(); g("wClear").textContent = "Tap again to clear"; setTimeout(() => g("wClear").textContent = "Clear", 3000); return; }
+    if (watchId != null) stop(); W = { rink: g("wRink").value.trim(), startedAt: null, endedAt: null, fixes: [], marks: [] }; persist(); render(); g("wClear").textContent = "Clear"; log("Cleared."); };
+  document.querySelectorAll(".wk").forEach(b => b.onclick = () => mark(b.dataset.k));
+  g("wRink").value = W.rink || "";
+  g("wRink").oninput = () => { W.rink = g("wRink").value.trim(); persist(); };
+  if (W.fixes.length) log(`Restored a saved walk: ${W.fixes.length} fixes, ${W.marks.length} marks.${W.endedAt ? "" : " It was not stopped; press Start walk to continue it."}`);
+  else log("Ready. Type the rink name and press Start walk.");
+  window.addEventListener("resize", () => draw());
+  render();
+  return { feed, draw: () => draw(), summary, fileOut, mark, start, stop };
+})();
 </script>
 </body>
 </html>
