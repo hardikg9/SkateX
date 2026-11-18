@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5fff">
+<title>SkateLog</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --ink: #121826; --muted: #5d6679; --line: #e2e6ef;
+    --accent: #0b5fff; --accent-ink: #ffffff; --danger: #c62828; --ok: #1b7f3b; --warn-bg: #fff4d6; --warn-ink: #6b4e00;
+    --radius: 14px; --pad: 20px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e1117; --card: #171b24; --ink: #e9ecf3; --muted: #9aa3b5; --line: #2a3140; --accent: #4c8dff;
+            --warn-bg: #3a2f10; --warn-ink: #f3d68a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", sans-serif; }
+  #proto { background: var(--warn-bg); color: var(--warn-ink); font-size: 12.5px; padding: 6px var(--pad); text-align: center; }
+  main { max-width: 520px; margin: 0 auto; padding: calc(var(--pad) + env(safe-area-inset-top)) var(--pad) calc(32px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 26px; line-height: 1.2; margin: 8px 0 6px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 26px 0 8px; }
+  p.sub { color: var(--muted); margin: 0 0 22px; }
+  label { display: block; font-weight: 600; font-size: 14px; margin: 16px 0 6px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .err { color: var(--danger); font-size: 14px; margin-top: 8px; min-height: 1em; }
+  input, select { width: 100%; font: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--line);
+    border-radius: 10px; padding: 13px 14px; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .row > .narrow { flex: 0 0 132px; }
+  button { font: inherit; font-weight: 650; border: 0; border-radius: 12px; padding: 15px 18px; width: 100%; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); margin-top: 22px; }
+  button.secondary { background: transparent; color: var(--accent); border: 1.5px solid var(--line); }
+  button.link { background: none; color: var(--accent); padding: 10px 0; margin-top: 6px; width: auto; font-weight: 600; }
+  button.danger { background: transparent; color: var(--danger); border: 1.5px solid var(--line); }
+  button:disabled { opacity: .45; cursor: default; }
+  a { color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 10px 0; }
+  .seg { display: flex; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { margin: 0; border-radius: 0; background: var(--card); color: var(--ink); font-weight: 600; padding: 12px 6px; }
+  .seg button + button { border-left: 1.5px solid var(--line); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); font-weight: 400; margin: 0; }
+  .check input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 2px; accent-color: var(--accent); }
+  .otp { font-size: 28px; letter-spacing: .5em; text-align: center; font-variant-numeric: tabular-nums; padding-left: .5em; }
+  .hero { text-align: center; padding: 40px 0 10px; }
+  .logo { width: 84px; height: 84px; border-radius: 22px; background: var(--accent); color: #fff; display: grid; place-items: center;
+    font-size: 40px; font-weight: 800; margin: 0 auto 16px; letter-spacing: -2px; }
+  .small { font-size: 13px; color: var(--muted); text-align: center; margin-top: 18px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
+  .topbar .back { background: none; color: var(--accent); width: auto; margin: 0; padding: 6px 0; }
+  .steps { color: var(--muted); font-size: 13px; }
+  .skater { display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; flex: 0 0 44px; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--muted); }
+  #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg);
+    padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; }
+  #toast.show { opacity: .95; }
+  .switch { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .switch input { width: 46px; height: 26px; flex: 0 0 46px; accent-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="proto"></div>
+<main id="app"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="i18n.js"></script>
+<script>
+"use strict";
+const APP_VERSION = "0.1.0";
+const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
+const KEY = "skatelog.proto.v1";
+
+// ---------------------------------------------------------------- storage (local, may be unavailable)
+let mem = null;
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return mem || {}; }
+}
+function save(s) {
+  mem = s;
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* private mode: keep in memory */ }
+}
+let S = load();
+S.settings = S.settings || {};
+S.skaters = S.skaters || [];
+
+// ---------------------------------------------------------------- i18n
+function detectLang() {
+  const want = (navigator.languages || [navigator.language || "en"]).map(l => l.slice(0, 2));
+  return want.find(l => SL_I18N[l]) || "en";
+}
+let LANG = S.settings.lang || detectLang();
+function t(key, vars) {
+  let s = (SL_I18N[LANG] && SL_I18N[LANG][key]) || SL_I18N.en[key] || key;
+  if (vars) for (const k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function countryName(cc) {
+  try { return new Intl.DisplayNames([LANG], { type: "region" }).of(cc); } catch (e) { return cc; }
+}
+function regionGuess() {
+  const loc = (navigator.languages || [navigator.language || ""]).find(l => l.includes("-")) || "";
+  const r = loc.split("-")[1];
+  return r && SL_COUNTRIES.find(c => c.cc === r.toUpperCase()) ? r.toUpperCase() : "IN";
+}
+const legalLinks = () => ({
+  terms: `<a href="legal/terms.html?lang=${LANG}" target="_blank">${esc(t("terms"))}</a>`,
+  privacy: `<a href="legal/privacy.html?lang=${LANG}" target="_blank">${esc(t("privacy"))}</a>`
+});
+
+// ---------------------------------------------------------------- helpers
+const $ = sel => document.querySelector(sel);
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("show"), 2200); }
+function go(route) { location.hash = route; }
+function persist() { save(S); }
+function topbar(backTo, step) {
+  return `<div class="topbar">${backTo ? `<button class="back" onclick="go('${backTo}')">‹ ${esc(t("back"))}</button>` : "<span></span>"}<span class="steps">${step || ""}</span></div>`;
+}
+function fmtPhone(p) { return `+${p.dial} ${p.number.replace(/(\d{5})(\d+)/, "$1 $2")}`; }
+function initials(n) { return (n || "?").trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase(); }
+function nextRoute() {
+  if (!S.account || !S.loggedIn) return "welcome";
+  if (!S.account.name) return "profile";
+  if (!S.consent) return "consent";
+  if (!S.skaters.length) return "skater";
+  return "home";
+}
+
+// ---------------------------------------------------------------- screens
+const screens = {};
+
+screens.welcome = () => `
+  <div class="hero"><div class="logo">SL</div><h1>${esc(t("welcome_title"))}</h1><p class="sub">${esc(t("welcome_tag"))}</p></div>
+  <label for="lang">${esc(t("language"))}</label>
+  <select id="lang">${Object.keys(SL_I18N).map(l => `<option value="${l}" ${l === LANG ? "selected" : ""}>${esc(SL_I18N[l]._name)}</option>`).join("")}</select>
+  <button id="start">${esc(t("get_started"))}</button>
+  <p class="small">${t("agree_line", legalLinks())}</p>`;
+screens.welcome.init = () => {
+  $("#lang").onchange = e => { LANG = e.target.value; S.settings.lang = LANG; persist(); render(); };
+  $("#start").onclick = () => go("phone");
+};
+
+screens.phone = () => {
+  const p = S.pending || { cc: regionGuess(), number: "" };
+  const list = [...SL_COUNTRIES].sort((a, b) => a.cc === "IN" ? -1 : b.cc === "IN" ? 1 : countryName(a.cc).localeCompare(countryName(b.cc), LANG));
+  return `${topbar("welcome", "1 / 4")}
+  <h1>${esc(t("phone_title"))}</h1><p class="sub">${esc(t("phone_sub"))}</p>
+  <div class="row">
+    <div class="narrow"><label for="cc">${esc(t("country"))}</label>
+      <select id="cc" autocomplete="tel-country-code">${list.map(c => `<option value="${c.cc}" ${c.cc === p.cc ? "selected" : ""}>${esc(countryName(c.cc))} +${c.dial}</option>`).join("")}</select></div>
+    <div><label for="num">${esc(t("mobile_number"))}</label>
+      <input id="num" type="tel" inputmode="numeric" autocomplete="tel-national" value="${esc(p.number)}"></div>
+  </div>
+  <div class="err" id="err"></div>
+  <button id="send">${esc(t("send_code"))}</button>
+  <p class="small">${t("agree_line", legalLinks())}</p>`;
+};
+screens.phone.init = () => {
+  const num = $("#num");
+  num.focus();
+  $("#send").onclick = () => {
+    const c = SL_COUNTRIES.find(x => x.cc === $("#cc").value);
+    let n = num.value.replace(/\D/g, "");
+    if (n.startsWith(c.dial) && n.length > Math.max(...c.len)) n = n.slice(c.dial.length);   // pasted with the country code
+    if (n.length > Math.max(...c.len) && n.startsWith("0")) n = n.replace(/^0+/, "");        // trunk prefix (0 in many countries)
+    const ok = c.len.includes(n.length) && (!c.start || c.start.includes(n[0]));
+    if (!ok) { $("#err").textContent = t("phone_invalid", { country: countryName(c.cc) }); return; }
+    S.pending = { cc: c.cc, dial: c.dial, number: n, code: String(Math.floor(100000 + Math.random() * 900000)), sentAt: Date.now() };
+    persist(); go("otp");
+  };
+  num.onkeydown = e => { if (e.key === "Enter") $("#send").click(); };
+};
+
+screens.otp = () => {
+  const p = S.pending;
+  if (!p) return go("phone"), "";
+  return `${topbar("phone", "2 / 4")}
+  <h1>${esc(t("otp_title"))}</h1><p class="sub">${esc(t("otp_sub", { phone: fmtPhone(p) }))}</p>
+  <div class="card" style="text-align:center">${esc(t("otp_proto", { code: p.code }))}</div>
+  <input id="code" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+  <div class="err" id="err"></div>
+  <button id="verify">${esc(t("verify"))}</button>
+  <div class="row"><button class="link" id="resend" disabled></button><button class="link" style="text-align:right" onclick="go('phone')">${esc(t("change_number"))}</button></div>`;
+};
+screens.otp.init = () => {
+  const code = $("#code"); code.focus();
+  const tick = () => {
+    const b = $("#resend"); if (!b) return clearInterval(screens.otp.timer);
+    const left = Math.max(0, 30 - Math.floor((Date.now() - S.pending.sentAt) / 1000));
+    b.disabled = left > 0; b.textContent = left > 0 ? t("resend_in", { s: left }) : t("resend");
+  };
+  clearInterval(screens.otp.timer); screens.otp.timer = setInterval(tick, 500); tick();
+  $("#resend").onclick = () => { S.pending.code = String(Math.floor(100000 + Math.random() * 900000)); S.pending.sentAt = Date.now(); persist(); render(); toast(t("otp_resent")); };
+  const verify = () => {
+    if (code.value.replace(/\D/g, "") !== S.pending.code) { $("#err").textContent = t("otp_wrong"); return; }
+    const p = S.pending;
+    const same = S.account && S.account.phone && S.account.phone.dial === p.dial && S.account.phone.number === p.number;
+    if (!same) { S.account = null; S.consent = null; S.skaters = []; }     // another number = another account on this phone
+    S.account = Object.assign(S.account || {}, { phone: { cc: p.cc, dial: p.dial, number: p.number }, verifiedAt: new Date().toISOString(), country: S.account?.country || p.cc });
+    S.loggedIn = true;
+    delete S.pending; persist(); go(nextRoute());
+  };
+  $("#verify").onclick = verify;
+  code.oninput = () => { if (code.value.replace(/\D/g, "").length === 6) verify(); };
+};
+
+screens.profile = () => {
+  const a = S.account || {};
+  const sel = (v, opts) => opts.map(([k, l]) => `<button type="button" data-v="${k}" class="${v === k ? "on" : ""}">${esc(t(l))}</button>`).join("");
+  return `${topbar(null, "3 / 4")}
+  <h1>${esc(t("profile_title"))}</h1><p class="sub">${esc(t("profile_sub"))}</p>
+  <label for="name">${esc(t("your_name"))}</label><input id="name" autocomplete="name" value="${esc(a.name)}">
+  <label for="email">${esc(t("email_optional"))}</label><input id="email" type="email" autocomplete="email" value="${esc(a.email)}">
+  <div class="hint">${esc(t("email_hint"))}</div>
+  <label>${esc(t("relationship"))}</label><div class="seg" id="rel">${sel(a.relationship || "parent", [["parent", "rel_parent"], ["guardian", "rel_guardian"]])}</div>
+  <label>${esc(t("units"))}</label><div class="seg" id="units">${sel(S.settings.units || (a.country === "US" ? "imperial" : "metric"), [["metric", "units_metric"], ["imperial", "units_imperial"]])}</div>
+  <div class="err" id="err"></div>
+  <button id="next">${esc(t("continue"))}</button>`;
+};
+screens.profile.init = () => {
+  document.querySelectorAll(".seg").forEach(seg => seg.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  });
+  const val = id => $(`#${id} .on`).dataset.v;
+  $("#next").onclick = () => {
+    const name = $("#name").value.trim(), email = $("#email").value.trim();
+    if (!name) { $("#err").textContent = t("name_required"); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { $("#err").textContent = t("email_invalid"); return; }
+    Object.assign(S.account, { name, email: email || null, relationship: val("rel") });
+    S.settings.units = val("units"); S.settings.lang = LANG;
+    persist(); go(nextRoute());
+  };
+};
+
+screens.consent = () => `${topbar("profile", "4 / 4")}
+  <h1>${esc(t("consent_title"))}</h1><p class="sub">${esc(t("consent_sub"))}</p>
+  <label class="check"><input type="checkbox" id="c1"><span>${t("consent_terms", legalLinks())}</span></label>
+  <label class="check"><input type="checkbox" id="c2"><span>${esc(t("consent_guardian"))}</span></label>
+  <label class="check"><input type="checkbox" id="c3"><span>${esc(t("consent_research"))}</span></label>
+  <p class="hint">${esc(t("consent_note"))}</p>
+  <div class="err" id="err"></div>
+  <button id="agree">${esc(t("agree_continue"))}</button>`;
+screens.consent.init = () => {
+  $("#agree").onclick = () => {
+    if (!$("#c1").checked || !$("#c2").checked) { $("#err").textContent = t("consent_required"); return; }
+    S.consent = { at: new Date().toISOString(), terms: LEGAL.terms, privacy: LEGAL.privacy, guardian: true,
+                  research: $("#c3").checked, lang: LANG, relationship: S.account.relationship };
+    persist(); go(nextRoute());
+  };
+};
+
+screens.skater = () => {
+  const y = new Date().getFullYear();
+  const years = []; for (let i = y - 3; i >= y - 25; i--) years.push(i);
+  return `${topbar(S.skaters.length ? "home" : null, "")}
+  <h1>${esc(t("skater_title"))}</h1><p class="sub">${esc(t("skater_sub"))}</p>
+  <label for="nick">${esc(t("nickname"))}</label><input id="nick" autocomplete="off">
+  <label for="by">${esc(t("birth_year"))}</label>
+  <select id="by"><option value="">–</option>${years.map(v => `<option>${v}</option>`).join("")}</select>
+  <label>${esc(t("discipline"))}</label>
+  <div class="seg" id="disc"><button type="button" data-v="inline" class="on">${esc(t("disc_inline"))}</button><button type="button" data-v="quad">${esc(t("disc_quad"))}</button><button type="button" data-v="both">${esc(t("disc_both"))}</button></div>
+  <label for="lvl">${esc(t("level"))}</label>
+  <select id="lvl">${["beginner", "intermediate", "competitive", "elite"].map(l => `<option value="${l}">${esc(t("level_" + l))}</option>`).join("")}</select>
+  <label for="club">${esc(t("club_optional"))}</label><input id="club" autocomplete="off">
+  <div class="err" id="err"></div>
+  <button id="save">${esc(t("save_skater"))}</button>`;
+};
+screens.skater.init = () => {
+  $("#disc").onclick = e => { const b = e.target.closest("button"); if (!b) return; $("#disc").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); };
+  $("#save").onclick = () => {
+    const nick = $("#nick").value.trim(), by = $("#by").value;
+    if (!nick) { $("#err").textContent = t("nickname_required"); return; }
+    if (!by) { $("#err").textContent = t("year_required"); return; }
+    const d = $("#disc .on").dataset.v;
+    S.skaters.push({ id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), display_name: nick, birth_year: +by,
+      discipline: d === "both" ? ["inline", "quad"] : [d], level: $("#lvl").value, club: $("#club").value.trim() || null,
+      created_at: new Date().toISOString() });
+    persist(); toast(t("skater_added", { name: nick })); go("home");
+  };
+};
+
+screens.home = () => {
+  const y = new Date().getFullYear();
+  return `<div class="topbar"><span></span><button class="link" onclick="go('settings')">${esc(t("settings"))}</button></div>
+  <h1>${esc(t("home_hello", { name: (S.account.name || "").split(" ")[0] }))}</h1>
+  <h2>${esc(t("your_skaters"))}</h2>
+  ${S.skaters.map(k => `<div class="card skater"><div class="avatar">${esc(initials(k.display_name))}</div>
+    <div><div><b>${esc(k.display_name)}</b></div><div class="meta">${esc(t("age_years", { n: new Intl.NumberFormat(LANG).format(y - k.birth_year) }))} · ${k.discipline.map(d => esc(t("disc_" + d))).join(" + ")} · ${esc(t("level_" + k.level))}${k.club ? " · " + esc(k.club) : ""}</div>
+    <div class="meta">${esc(t("no_sessions"))}</div></div></div>`).join("")}
+  <button class="link" onclick="go('skater')">${esc(t("add_skater_btn"))}</button>
+  <button disabled>${esc(t("start_session"))}</button>
+  <p class="small">${esc(t("coming_next"))}</p>`;
+};
+
+screens.settings = () => {
+  const a = S.account, c = S.consent;
+  const date = new Intl.DateTimeFormat(LANG, { dateStyle: "medium" }).format(new Date(c.at));
+  return `${topbar("home", "")}
+  <h1>${esc(t("settings_title"))}</h1>
+  <h2>${esc(t("account"))}</h2>
+  <div class="card">
+    <div class="kv"><span>${esc(t("your_name"))}</span><span>${esc(a.name)}</span></div>
+    <div class="kv"><span>${esc(t("phone"))}</span><span>${esc(fmtPhone(a.phone))}</span></div>
+    <div class="kv"><span>${esc(t("email"))}</span><span>${esc(a.email || t("not_set"))}</span></div>
+    <button class="link" onclick="go('profile')">${esc(t("edit"))}</button>
+  </div>
+  <h2>${esc(t("language"))}</h2>
+  <select id="lang">${Object.keys(SL_I18N).map(l => `<option value="${l}" ${l === LANG ? "selected" : ""}>${esc(SL_I18N[l]._name)}</option>`).join("")}</select>
+  <h2>${esc(t("privacy_data"))}</h2>
+  <div class="card">
+    <label class="switch" style="margin:0;font-weight:400"><span>${esc(t("research_sharing"))}</span><input type="checkbox" id="research" ${c.research ? "checked" : ""}></label>
+    <div class="hint">${esc(t("consent_given", { date, tv: c.terms, pv: c.privacy }))}</div>
+  </div>
+  <button class="secondary" id="export">${esc(t("export_data"))}</button>
+  <button class="danger" id="del">${esc(t("delete_account"))}</button>
+  <button class="secondary" id="out">${esc(t("sign_out"))}</button>
+  <h2>${esc(t("about"))}</h2>
+  <p class="meta">${t("agree_line", legalLinks())}<br>${esc(t("version", { v: APP_VERSION }))}</p>`;
+};
+screens.settings.init = () => {
+  $("#lang").onchange = e => { LANG = e.target.value; S.settings.lang = LANG; persist(); render(); };
+  $("#research").onchange = e => { S.consent.research = e.target.checked; S.consent.research_changed_at = new Date().toISOString(); persist(); toast(t("saved")); };
+  $("#export").onclick = () => {
+    const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), app_version: APP_VERSION, ...S }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "skatelog-my-data.json"; a.click();
+  };
+  $("#del").onclick = () => { if (confirm(t("delete_confirm"))) { S = { settings: { lang: LANG }, skaters: [] }; persist(); go("welcome"); } };
+  $("#out").onclick = () => { S.loggedIn = false; persist(); go("welcome"); };   // data stays on this phone; signing in with the same number brings it back
+};
+
+// ---------------------------------------------------------------- router
+const OPEN = ["welcome", "phone", "otp"];
+function render() {
+  document.documentElement.lang = LANG;
+  $("#proto").textContent = t("proto_banner");
+  let r = (location.hash || "#").slice(1) || nextRoute();
+  if (!screens[r]) r = nextRoute();
+  if (!OPEN.includes(r) && !S.loggedIn) r = "welcome";
+  if (S.loggedIn && OPEN.includes(r)) r = nextRoute();
+  if (["home", "settings", "skater"].includes(r) && (!S.account?.name || !S.consent)) r = nextRoute();
+  if (r === "settings" && !S.consent) r = nextRoute();
+  if (("#" + r) !== location.hash) { history.replaceState(null, "", "#" + r); }
+  $("#app").innerHTML = screens[r]() || "";
+  if (screens[r].init) screens[r].init();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", render);
+render();
+</script>
+</body>
+</html>
