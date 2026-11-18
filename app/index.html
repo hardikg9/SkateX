@@ -107,6 +107,13 @@
   .tier.cur { border-color: var(--accent); }
   .tier .top { display: flex; justify-content: space-between; align-items: baseline; }
   svg.spark { width: 100%; height: 70px; display: block; }
+  #chat { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+  .msg { max-width: 86%; padding: 10px 13px; border-radius: 14px; font-size: 15px; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; }
+  .chip { flex: 0 0 auto; width: auto; margin: 0; padding: 8px 12px; font-size: 13.5px; border-radius: 99px; background: var(--soft); color: var(--ink); font-weight: 600; }
+  details summary { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -118,7 +125,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -129,8 +136,10 @@ let mem = null;
 function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return mem || {}; } }
 function save(s) { mem = s; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } }
 let S = load();
-function fresh() { return { settings: { lang: (S && S.settings && S.settings.lang) || "en" }, skaters: [], sessions: [], plans: [], sensors: [] }; }
+function fresh() { return { settings: { lang: (S && S.settings && S.settings.lang) || "en" }, skaters: [], sessions: [], plans: [], sensors: [], ai: {},
+  club: { feePlans: [], members: {}, payments: [], charges: [], announcements: [] } }; }
 S = Object.assign(fresh(), S);
+S.club = Object.assign({ feePlans: [], members: {}, payments: [], charges: [], announcements: [] }, S.club || {}); S.ai = S.ai || {};
 const persist = () => save(S);
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
@@ -359,6 +368,7 @@ screens.skater.init = () => {
 
 // ================================================================ app shell (top bar + tabs)
 const TABS = [["home", "🏠", "tab_home"], ["plan", "📅", "tab_plan"], ["skate", "⛸️", "tab_skate"], ["insights", "📈", "tab_insights"], ["learn", "📘", "tab_learn"]];
+const tabsFor = () => role() === "coach" ? TABS.slice(0, 4).concat([["club", "🏟️", "tab_club"]]) : TABS;
 function shellTop() {
   const k = currentSkater(), coach = role() === "coach";
   const label = k ? k.display_name : coach ? t("all_squad") : "–";
@@ -385,7 +395,7 @@ $("#menu").onclick = e => {
 };
 function shellTabs(active) {
   const n = $("#tabs");
-  n.innerHTML = TABS.map(([r, i, l]) => `<button class="${r === "skate" ? "skate " : ""}${r === active ? "on" : ""}" data-r="${r}"><span class="i">${i}</span>${T(l)}</button>`).join("");
+  n.innerHTML = tabsFor().map(([r, i, l]) => `<button class="${r === "skate" ? "skate " : ""}${r === active ? "on" : ""}" data-r="${r}"><span class="i">${i}</span>${T(l)}</button>`).join("");
   n.querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.r));
 }
 function wireWho() { const w = $("#who"); if (w) w.onclick = openMenu; }
@@ -405,9 +415,12 @@ screens.home = () => {
   const best = bests.length ? Math.min(...bests) : null;
   const plans = S.plans.filter(p => !k || p.skater_id === k.id || p.skater_id === "all");
   const daySessions = ss.filter(s => dayKey(s.date) === sel), dayPlans = plans.filter(p => p.date === sel);
-  const hello = k ? (k.self ? S.account.name : (role() === "parent" ? S.account.name : k.display_name)) : "";
+  const title = k ? (k.self ? t("your_week") : t("week_of", { name: k.display_name })) : "";
+  const ann = role() === "coach" ? S.club.announcements.slice(-2).reverse() : [];
+  const aiBtn = k && S.plan === "elite" ? `<button class="secondary" onclick="go('ai')">✨ ${T("ai_open")}</button>` : "";
   return `${shellTop()}
-  ${coach && !k ? `<h1>${T("squad")}</h1><p class="sub">${T("squad_summary", { n: S.skaters.length, s: week.length })}</p>` : `<h1>${T("home_hello", { name: esc(hello.split(" ")[0]) })}</h1>`}
+  ${coach && !k ? `<h1>${T("squad")}</h1><p class="sub">${T("squad_summary", { n: S.skaters.length, s: week.length })}</p>` : `<h1>${esc(title)}</h1>`}
+  ${ann.map(a => `<div class="card"><span class="badge">📣 ${T("announcements")}</span><div style="margin-top:6px">${esc(a.text)}</div><div class="hint">${esc(dfmt(new Date(a.at), { dateStyle: "medium" }))}</div></div>`).join("")}
   <div class="week">${days.map(d => { const kk = dayKey(d);
     const has = ss.some(s => dayKey(s.date) === kk), pl = plans.some(p => p.date === kk);
     return `<div class="day ${kk === dayKey(now) ? "today" : ""} ${kk === sel ? "sel" : ""}" data-d="${kk}"><div class="d">${esc(dfmt(d, { weekday: "short" }))}</div><div class="n">${d.getDate()}</div>
@@ -421,7 +434,7 @@ screens.home = () => {
   </div>
   ${ss.length ? `<h2>${T("trend_title")}</h2><div class="card">${spark(ss)}</div>` : `<div class="card meta">${T("no_data_yet")}</div>`}
   <h2>${T("ai_summary")}</h2>
-  <div class="card">${esc(summaryText(k, ss, week))}<div class="hint">${T("ai_note")}</div></div>`;
+  <div class="card">${esc(summaryText(k, ss, week))}<div class="hint">${T("ai_note")}</div></div>${aiBtn}`;
 };
 screens.home.init = () => {
   wireWho();
@@ -439,7 +452,8 @@ function planCard(p) {
   const d = new Date(p.date + "T00:00");
   return `<div class="card plancard"><div class="date"><b>${d.getDate()}</b><span>${esc(dfmt(d, { month: "short" }))}</span></div>
     <div><b>${esc(p.title || t(p.type === "race" ? "race" : "training"))}</b> <span class="badge">${T("planned")}</span>
-    <div class="meta">${T(p.type === "race" ? "race" : "training")}${p.distance ? " · " + T("laps_n", { n: p.distance }) : ""}${p.notes ? " · " + esc(p.notes) : ""}</div></div></div>`;
+    <div class="meta">${T(p.type === "race" ? "race" : role() === "coach" ? "practice" : "training")}${p.distance ? " · " + T("laps_n", { n: p.distance }) : ""}${p.notes ? " · " + esc(p.notes) : ""}</div>
+    ${role() === "coach" && p.type !== "race" && p.date <= dayKey(new Date()) ? `<button class="link" onclick="S.attendId='${p.id}';go('attend')">${p.attendance ? T("attended_n", { a: Object.values(p.attendance).filter(Boolean).length, n: S.skaters.length }) : T("take_attendance")} ›</button>` : ""}</div></div>`;
 }
 function spark(ss) {
   const pts = ss.filter(s => bestLapOf(s)).sort((a, b) => a.date.localeCompare(b.date)).map(bestLapOf).slice(-12);
@@ -452,7 +466,7 @@ function spark(ss) {
 }
 function summaryText(k, ss, week) {
   if (!ss.length) return t("no_data_yet");
-  const name = k ? (k.self ? S.account.name.split(" ")[0] : k.display_name) : t("squad");
+  const name = k ? (k.self ? "You" : k.display_name) : t("squad");
   const bests = ss.map(bestLapOf).filter(Boolean);
   const best = bests.length ? Math.min(...bests) : null;
   const lastTwo = ss.filter(s => bestLapOf(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2).map(bestLapOf);
@@ -539,15 +553,16 @@ screens.plan = () => {
   const plans = S.plans.filter(p => !k || p.skater_id === k.id || p.skater_id === "all");
   const up = plans.filter(p => p.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const past = sessionsFor(k).sort((a, b) => b.date.localeCompare(a.date));
+  const pastPlans = role() === "coach" ? plans.filter(p => p.date < today).sort((a, b) => b.date.localeCompare(a.date)) : [];
   return `${shellTop()}<h1>${T("plan_title")}</h1>
   <button class="secondary" onclick="go('planadd')">${T("add_plan")}</button>
   <h2>${T("upcoming")}</h2>${up.map(planCard).join("") || `<div class="card meta">${T("nothing_planned")}</div>`}
-  <h2>${T("past")}</h2>${past.map(sessionCard).join("") || `<div class="card meta">${T("no_data_yet")}</div>`}`;
+  <h2>${T("past")}</h2>${pastPlans.map(planCard).join("")}${past.map(sessionCard).join("") || (pastPlans.length ? "" : `<div class="card meta">${T("no_data_yet")}</div>`)}`;
 };
 screens.plan.init = wireWho;
 screens.planadd = () => `${back("plan", "")}<h1>${T("add_plan").replace("+ ", "")}</h1>
-  <label>${T("me_type")}</label><div class="seg" id="pt"><button type="button" data-v="training" class="on">${T("type_training")}</button><button type="button" data-v="race">${T("type_race")}</button></div>
-  <label for="pd">${T("me_date")}</label><input id="pd" type="date" value="${dayKey(new Date())}" min="${dayKey(new Date())}">
+  <label>${T("me_type")}</label><div class="seg" id="pt"><button type="button" data-v="training" class="on">${T(role() === "coach" ? "practice" : "type_training")}</button><button type="button" data-v="race">${T("type_race")}</button></div>
+  <label for="pd">${T("me_date")}</label><input id="pd" type="date" value="${dayKey(new Date())}" ${role() === "coach" ? "" : `min="${dayKey(new Date())}"`}>
   <label for="ptl">${T("plan_item_title")}</label><input id="ptl">
   <div id="pdist" hidden><label for="pdl">${T("me_race_dist")}</label><input id="pdl" type="number" step="0.5" inputmode="decimal"></div>
   <label for="pn">${T("me_notes")}</label><textarea id="pn" rows="2"></textarea>
@@ -567,7 +582,9 @@ screens.insights = () => {
   const tier = S.plan === "coach" ? "elite" : S.plan;
   const rows = [["ins_laps", "pro"], ["ins_starts", "pro"], ["ins_finish", "pro"], ["ins_crossover", "elite"], ["ins_posture", "elite"], ["ins_compare", "elite"]];
   const open = need => tier === "elite" || (tier === "pro" && need === "pro");
+  const k = currentSkater();
   return `${shellTop()}<h1>${T("insights_title")}</h1><p class="sub">${T("insights_sub")}</p>
+  ${k && role() !== "coach" ? `<div class="card tap" onclick="go('ai')"><b>✨ ${T("ai_title")}</b> <span class="badge elite">${T("needs_elite")}</span><div class="meta">${k.self ? T("ai_sub_you") : T("ai_sub", { name: esc(k.display_name) })}</div></div>` : ""}
   <div class="card">${rows.map(([k, need]) => `<div class="lockrow"><span>${open(need) ? "" : "🔒 "}${T(k)}</span><span class="badge ${need}">${T("needs_" + need)}</span></div>`).join("")}</div>
   <div class="hint">${T("ins_empty")}</div>
   ${tier === "free" ? `<button class="secondary" onclick="go('settings')">${T("see_plans")}</button>` : ""}`;
@@ -611,7 +628,8 @@ screens.settings = () => {
   </div>
   <h2>${T("plan_section")}</h2>
   ${tiers.map(([k, p, per]) => `<div class="tier ${S.plan === k ? "cur" : ""}"><div class="top"><b>${T("plan_" + k)}</b>
-    <span>${p ? T(per, { p: money(p) }) : money(0)}</span></div><div class="meta">${T("plan_" + k + "_d")}</div>
+    <span>${p ? T(per, { p: money(p) }) : money(0)}</span></div><div class="meta">${T(k === "coach" ? "plan_coach_d2" : "plan_" + k + "_d")}</div>
+    ${k === "coach" ? `<div class="hint">${T("coach_total", { n: S.skaters.length, total: money(PRICES.coach * S.skaters.length) })}</div>` : ""}
     ${S.plan === k ? `<div class="hint"><b>${T("current")}</b></div>` : `<button class="small secondary" style="margin-top:10px" data-plan="${k}">${T("switch_proto")}</button>`}</div>`).join("")}
   <h2>${T("sensors_section")}</h2><div class="card meta">${T("no_sensors")}</div>
   <h2>${T("units_setting")}</h2>
@@ -643,9 +661,146 @@ screens.settings.init = () => {
   $("#out").onclick = () => { S.loggedIn = false; persist(); go("welcome"); };
 };
 
+// ================================================================ AI coach (Elite) — prototype answers from simple rules
+function aiAnswer(q, k) {
+  const ql = q.toLowerCase(), name = k.self ? "you" : k.display_name, Name = k.self ? "You" : k.display_name;
+  const ss = sessionsFor(k).sort((a, b) => b.date.localeCompare(a.date));
+  const cite = list => list.length ? `\n\nBased on: ${list.map(s => `${dfmt(new Date(s.date), { day: "numeric", month: "short" })} (${s.source === "stopwatch" ? t("stopwatch_src") : t("manual_src")})`).join(", ")}. These are hand-timed, so treat small differences with care.` : "";
+  if (/injur|pain|hurt|sore|diet|weight|eat|food|sick|doctor|medic|sleep/.test(ql))
+    return `That's a question for ${k.self ? "your" : name + "'s"} coach or a doctor, not for me. I can help with sessions, lap times, technique and what to practise.`;
+  if (!ss.length) return `I don't have any sessions for ${name} yet. Record one from the Skate tab (the stopwatch works without a sensor) and ask me again.`;
+  const lapsOf = s => s.laps && s.laps.length ? s.laps : (s.best_lap ? [s.best_lap] : []);
+  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+  if (/stroke rate|cadence|strokes/.test(ql))
+    return "Stroke rate is how many pushes per minute. In our rink tests cruising was about 130 per minute, and standing-start bursts reached 160–220 per minute for the first 2–3 seconds. A sensor session measures it automatically; the stopwatch can't.";
+  if (/compare|last two|previous|before/.test(ql)) {
+    const two = ss.filter(s => lapsOf(s).length).slice(0, 2);
+    if (two.length < 2) return `I need two sessions with lap times to compare; ${name} has ${two.length}.` + cite(two);
+    const [a, b] = two, ba = Math.min(...lapsOf(a)), bb = Math.min(...lapsOf(b));
+    let r = `Latest best lap ${fmtLap(ba)} s against ${fmtLap(bb)} s the time before (${ba < bb ? num(bb - ba) + " s faster" : ba > bb ? num(ba - bb) + " s slower" : "the same"}).`;
+    if (lapsOf(a).length > 1 && lapsOf(b).length > 1) r += ` Average lap ${fmtLap(mean(lapsOf(a)))} s against ${fmtLap(mean(lapsOf(b)))} s.`;
+    return r + cite(two);
+  }
+  if (/work on|improve|focus|better|practi[cs]e/.test(ql)) {
+    const s = ss.find(x => lapsOf(x).length > 2);
+    if (!s) return `To spot what to work on I need a session with at least 3 laps timed. With a sensor (Pro/Elite) I can also look at starts, crossovers and posture.` + cite(ss.slice(0, 1));
+    const L = lapsOf(s), m = mean(L), sd = Math.sqrt(mean(L.map(x => (x - m) ** 2))), cv = sd / m * 100;
+    const slowest = L.indexOf(Math.max(...L)) + 1;
+    return (cv > 3 ? `${Name}'s lap times varied quite a lot (${num(cv)}% spread; lap ${slowest} was slowest). Work on even pacing: a few sets of 3 laps aiming for the same time each lap.`
+                   : `${Name}'s laps were very even (${num(cv)}% spread), so pacing is good. The next gains are usually in the start and in the corners; a sensor session would show which.`) + cite([s]);
+  }
+  if (/note|coach|summary for/.test(ql)) {
+    const wk = ss.filter(s => (Date.now() - new Date(s.date)) < 7 * 864e5);
+    const bests = wk.map(bestLapOf).filter(Boolean);
+    return `Note for the coach:\n${Name} skated ${wk.length} session${wk.length === 1 ? "" : "s"} this week${bests.length ? `, best lap ${fmtLap(Math.min(...bests))} s` : ""}. ${wk.some(s => s.type === "race") ? "Includes a race. " : ""}Times are hand-timed. Anything you'd like ${name} to focus on next week?` + cite(wk);
+  }
+  if (/week|doing|how is|how am|progress|trend/.test(ql)) {
+    const wk = ss.filter(s => (Date.now() - new Date(s.date)) < 7 * 864e5);
+    const bests = ss.map(bestLapOf).filter(Boolean);
+    return `${Name} skated ${wk.length} session${wk.length === 1 ? "" : "s"} in the last 7 days (${ss.length} in total).${bests.length ? ` Best lap so far ${fmtLap(Math.min(...bests))} s.` : ""} ${ss.length < 4 ? "That's not enough sessions to call a trend yet; a few more will tell." : ""}` + cite(wk.length ? wk : ss.slice(0, 2));
+  }
+  return `I can answer questions about ${k.self ? "your" : name + "'s"} sessions, lap times and what to work on. Try one of the suggestions.`;
+}
+screens.ai = () => {
+  const k = currentSkater();
+  if (!k || role() === "coach") { setTimeout(() => go("insights")); return ""; }
+  const hist = S.ai[k.id] || [];
+  if (S.plan !== "elite") return `${back("insights", "")}<h1>✨ ${T("ai_title")}</h1><div class="card">${T("ai_locked")}</div><button class="secondary" onclick="go('settings')">${T("see_plans")}</button>`;
+  const qs = ["ai_q1", "ai_q2", "ai_q3", "ai_q4", "ai_q5"].map(q => t(q, { name: k.self ? "me" : k.display_name }).replace("How is me doing", "How am I doing").replace("What should me work on", "What should I work on"));
+  return `${back("insights", "")}<h1>✨ ${T("ai_title")}</h1><p class="sub">${k.self ? T("ai_sub_you") : T("ai_sub", { name: esc(k.display_name) })}</p>
+  <div id="chat">${hist.map(m => `<div class="msg ${m.who}">${esc(m.text).replace(/\n/g, "<br>")}</div>`).join("")}</div>
+  <div class="chips">${qs.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+  <div class="row" style="align-items:center"><input id="aiq" placeholder="${T("ai_placeholder")}"><button class="small" id="aisend" style="flex:0 0 auto;padding:13px 16px">${T("ai_send")}</button></div>
+  <div class="hint">${T("ai_proto")}</div>
+  ${hist.length ? `<button class="link" id="aiclear">${T("ai_clear")}</button>` : ""}`;
+};
+screens.ai.init = () => {
+  const k = currentSkater(); if (!k || !$("#aiq")) return;
+  const ask = q => { if (!q.trim()) return; const h = S.ai[k.id] = S.ai[k.id] || [];
+    h.push({ who: "me", text: q.trim(), at: new Date().toISOString() }); h.push({ who: "bot", text: aiAnswer(q, k), at: new Date().toISOString() }); persist(); render();
+    const c = $("#chat"); if (c && c.lastElementChild) c.lastElementChild.scrollIntoView({ block: "end" }); };
+  document.querySelectorAll(".chip").forEach(b => b.onclick = () => ask(b.dataset.q));
+  $("#aisend").onclick = () => ask($("#aiq").value);
+  $("#aiq").onkeydown = e => { if (e.key === "Enter") ask(e.target.value); };
+  if ($("#aiclear")) $("#aiclear").onclick = () => { S.ai[k.id] = []; persist(); render(); };
+};
+
+// ================================================================ Coach: attendance
+screens.attend = () => {
+  const p = S.plans.find(x => x.id === S.attendId);
+  if (!p || role() !== "coach") { setTimeout(() => go("plan")); return ""; }
+  const a = p.attendance || {};
+  return `${back("plan", "")}<h1>${T("attendance")}</h1><p class="sub">${esc(p.title || t("practice"))} · ${esc(dfmt(new Date(p.date + "T00:00"), { dateStyle: "medium" }))}</p>
+  <div class="card">${S.skaters.map(k => `<label class="check"><input type="checkbox" data-k="${k.id}" ${a[k.id] ? "checked" : ""}><span>${esc(k.display_name)}</span></label>`).join("") || T("squad_empty")}</div>
+  <button id="asave">${T("sw_save")}</button>`;
+};
+screens.attend.init = () => {
+  if (!$("#asave")) return;
+  $("#asave").onclick = () => { const p = S.plans.find(x => x.id === S.attendId); p.attendance = {};
+    document.querySelectorAll("#app [data-k]").forEach(c => p.attendance[c.dataset.k] = c.checked); persist(); toast(t("saved")); go("plan"); };
+};
+
+// ================================================================ Coach: Club tab (announcements, members and fees, extra fees)
+function periodKey(period, d) { d = d || new Date();
+  return period === "year" ? String(d.getFullYear()) : period === "quarter" ? `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}` : dayKey(d).slice(0, 7); }
+function memberStatus(kid) {
+  const m = S.club.members[kid]; if (!m || !m.planId) return null;
+  const fp = S.club.feePlans.find(f => f.id === m.planId); if (!fp) return null;
+  const pk = periodKey(fp.period), pay = S.club.payments.find(x => x.skater_id === kid && x.plan_id === fp.id && x.period === pk);
+  return { fp, pk, pay };
+}
+screens.club = () => {
+  if (role() !== "coach") { setTimeout(() => go("home")); return ""; }
+  const c = S.club;
+  const st = S.skaters.map(k => ({ k, s: memberStatus(k.id) }));
+  const withPlan = st.filter(x => x.s), paidN = withPlan.filter(x => x.s.pay).length;
+  const extraDue = c.charges.reduce((a, ch) => a + ch.skater_ids.filter(id => !(ch.paid || {})[id]).length * ch.amount, 0);
+  const planDue = withPlan.filter(x => !x.s.pay).reduce((a, x) => a + x.s.fp.amount, 0);
+  return `${shellTop()}<h1>${T("club_title")}</h1>
+  <p class="sub">${esc(S.account.club && S.account.club.name || t("independent_coach"))} · ${T("period_paid_n", { p: paidN, n: withPlan.length })} · ${T("outstanding", { amt: money(planDue + extraDue) })}</p>
+  <h2>${T("announcements")}</h2>
+  <div class="row" style="align-items:center"><input id="ann" placeholder="${T("announcement_ph")}"><button class="small" id="annpost" style="flex:0 0 auto;padding:13px 16px">${T("post_announcement")}</button></div>
+  ${c.announcements.slice().reverse().slice(0, 3).map(a => `<div class="card">${esc(a.text)}<div class="hint">${esc(dfmt(new Date(a.at), { dateStyle: "medium", timeStyle: "short" }))}</div></div>`).join("") || `<div class="hint">${T("no_announcements")}</div>`}
+  <h2>${T("members")}</h2>
+  <div class="card">${st.map(({ k, s }) => `<div class="lockrow"><span><b>${esc(k.display_name)}</b><br>
+      <select data-assign="${k.id}" style="margin-top:6px;padding:8px;font-size:14px;max-width:62vw"><option value="">${T("assign_plan")}: ${T("none")}</option>${c.feePlans.map(f => `<option value="${f.id}" ${s && s.fp.id === f.id ? "selected" : ""}>${esc(f.name)} · ${money(f.amount)}</option>`).join("")}</select></span>
+      <span style="text-align:right">${s ? (s.pay ? `<span class="badge" style="background:var(--ok);color:#fff">${T("paid")}</span><div class="hint">${T("paid_on", { date: esc(dfmt(new Date(s.pay.at), { day: "numeric", month: "short" })) })}</div>` : `<span class="badge unv">${T("due")} ${money(s.fp.amount)}</span><br><button class="small secondary" style="margin-top:6px" data-pay="${k.id}">${T("record_payment")}</button>`) : ""}</span></div>`).join("") || T("squad_empty")}</div>
+  <h2>${T("fee_plans")}</h2>
+  ${c.feePlans.map(f => `<div class="card"><b>${esc(f.name)}</b><div class="meta">${money(f.amount)} · ${T("fee_period")} ${T("period_" + f.period).toLowerCase()}</div></div>`).join("") || `<div class="hint">${T("no_fee_plans")}</div>`}
+  <details class="card"><summary style="font-weight:650;color:var(--accent)">${T("add_fee_plan")}</summary>
+    <label for="fn">${T("fee_name")}</label><input id="fn" placeholder="Monthly training">
+    <div class="row"><div><label for="fa">${T("fee_amount")}</label><input id="fa" type="number" inputmode="numeric"></div>
+    <div><label for="fp">${T("fee_period")}</label><select id="fp"><option value="month">${T("period_month")}</option><option value="quarter">${T("period_quarter")}</option><option value="year">${T("period_year")}</option></select></div></div>
+    <button id="fsave">${T("sw_save")}</button></details>
+  <h2>${T("extra_fees")}</h2>
+  ${c.charges.map(ch => `<div class="card"><b>${esc(ch.name)}</b> <span class="meta">· ${money(ch.amount)} · ${esc(dfmt(new Date(ch.date + "T00:00"), { day: "numeric", month: "short" }))}</span>
+      ${ch.skater_ids.map(id => { const k = S.skaters.find(x => x.id === id); if (!k) return ""; const pd = (ch.paid || {})[id];
+        return `<div class="lockrow"><span>${esc(k.display_name)}</span>${pd ? `<span class="badge" style="background:var(--ok);color:#fff">${T("paid")}</span>` : `<button class="small secondary" data-chpay="${ch.id}|${id}">${T("record_payment")}</button>`}</div>`; }).join("")}</div>`).join("") || `<div class="hint">${T("no_extra")}</div>`}
+  <details class="card"><summary style="font-weight:650;color:var(--accent)">${T("add_extra_fee")}</summary>
+    <label for="xn">${T("extra_name")}</label><input id="xn" placeholder="Special rink session">
+    <div class="row"><div><label for="xa">${T("fee_amount")}</label><input id="xa" type="number" inputmode="numeric"></div>
+    <div><label for="xd">${T("me_date")}</label><input id="xd" type="date" value="${dayKey(new Date())}"></div></div>
+    <label>${T("extra_for")}</label>${S.skaters.map(k => `<label class="check"><input type="checkbox" data-xk="${k.id}" checked><span>${esc(k.display_name)}</span></label>`).join("")}
+    <button id="xsave">${T("sw_save")}</button></details>`;
+};
+screens.club.init = () => {
+  if (!$("#annpost")) return; wireWho();
+  $("#annpost").onclick = () => { const v = $("#ann").value.trim(); if (!v) return; S.club.announcements.push({ id: uid(), text: v, at: new Date().toISOString() }); persist(); render(); toast(t("saved")); };
+  document.querySelectorAll("[data-assign]").forEach(sel => sel.onchange = () => { S.club.members[sel.dataset.assign] = { planId: sel.value || null, since: dayKey(new Date()) }; persist(); render(); });
+  document.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { const s = memberStatus(b.dataset.pay);
+    S.club.payments.push({ id: uid(), skater_id: b.dataset.pay, plan_id: s.fp.id, period: s.pk, amount: s.fp.amount, at: new Date().toISOString(), method: "recorded" }); persist(); render(); toast(t("saved")); });
+  document.querySelectorAll("[data-chpay]").forEach(b => b.onclick = () => { const [cid, kid] = b.dataset.chpay.split("|"), ch = S.club.charges.find(x => x.id === cid);
+    ch.paid = ch.paid || {}; ch.paid[kid] = new Date().toISOString(); persist(); render(); toast(t("saved")); });
+  $("#fsave").onclick = () => { const n = $("#fn").value.trim(), a = +$("#fa").value; if (!n || !(a > 0)) return;
+    S.club.feePlans.push({ id: uid(), name: n, amount: a, period: $("#fp").value }); persist(); render(); toast(t("saved")); };
+  $("#xsave").onclick = () => { const n = $("#xn").value.trim(), a = +$("#xa").value; if (!n || !(a > 0)) return;
+    const ids = [...document.querySelectorAll("[data-xk]")].filter(c => c.checked).map(c => c.dataset.xk);
+    S.club.charges.push({ id: uid(), name: n, amount: a, date: $("#xd").value, skater_ids: ids, paid: {} }); persist(); render(); toast(t("saved")); };
+};
+
 // ================================================================ router
 const OPEN = ["welcome", "phone", "otp"];
-const SHELL = ["home", "plan", "skate", "insights", "learn"];
+const SHELL = ["home", "plan", "skate", "insights", "learn", "club"];
 function render() {
   document.documentElement.lang = LANG;
   $("#proto").textContent = t("proto_banner");
@@ -659,7 +814,8 @@ function render() {
     if (!(ORDER.includes(r) && ORDER.indexOf(r) <= ORDER.indexOf(nr) && r !== "role")) r = nr;
   }
   if (r === "skater" && role() !== "parent") r = "home";
-  if (r === "invite" && role() !== "coach") r = "home";
+  if (["invite", "club", "attend"].includes(r) && role() !== "coach") r = "home";
+  if (r === "learn" && role() === "coach") r = "club";
   if (("#" + r) !== location.hash) history.replaceState(null, "", "#" + r);
   document.body.classList.toggle("onboard", !SHELL.includes(r));
   $("#tabs").hidden = !SHELL.includes(r);
