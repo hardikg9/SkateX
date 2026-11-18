@@ -172,11 +172,22 @@ function setLink(text, cls) { const p = $("link"); p.textContent = text; p.class
 // ---------------------------------------------------------------- connection
 async function connect() {
   if (!navigator.bluetooth) { log("This browser has no Web Bluetooth. Use Chrome on Mac/PC, or Bluefy on iPhone."); return; }
+  log("Connect pressed: opening the Bluetooth chooser…");
+  try {
+    const avail = navigator.bluetooth.getAvailability ? await navigator.bluetooth.getAvailability() : true;
+    if (!avail) log("Bluetooth looks OFF or blocked for this browser. Turn on Bluetooth and allow it for this app in phone Settings.");
+  } catch (e) {}
+  const slow = setTimeout(() => log("Chooser has not opened after 8 s. Close this tab fully (or force-quit the browser) and reopen the page."), 8000);
   try {
     device = await navigator.bluetooth.requestDevice({
       filters: [{ services: [U_SVC] }, { namePrefix: "SKS-" }],
       optionalServices: [U_SVC, "battery_service", "device_information"] });
-  } catch (e) { log("No sensor chosen."); return; }
+  } catch (e) {
+    clearTimeout(slow);
+    log(e.name === "NotFoundError" && /cancel/i.test(e.message) ? "No sensor chosen." : `Chooser error: ${e.name}: ${e.message}`);
+    return;
+  }
+  clearTimeout(slow);
   $("devname").textContent = device.name || "";
   device.addEventListener("gattserverdisconnected", onDisconnected);
   wantConnected = true; attempts = 0; connecting = false;
