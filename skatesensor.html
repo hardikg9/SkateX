@@ -160,6 +160,9 @@
         <button id="bClear">Clear</button>
         <button id="bOff" class="danger" disabled>Power off</button>
       </div>
+      <div class="row">
+        <button id="bDfu" disabled>Firmware update mode</button>
+      </div>
       <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes on both the XIAO and the Holyiot with firmware 0.3+) and the page fetches it automatically when the link comes back.</p>
     </div>
 
@@ -213,7 +216,7 @@ const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS
 const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
 const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3"];
 const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
-const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK"};
+const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK",10:"UPDATE_MODE"};
 
 // ---------------------------------------------------------------- one recorder per sensor
 function Sensor(root, label, onLink) {
@@ -332,7 +335,7 @@ function simulateDropout() {
 function disconnect() { wantConnected = false; clearTimeout(reconnectTimer); if (device && device.gatt.connected) device.gatt.disconnect(); setLink("Not connected"); buttons(false); }
 
 function buttons(on) {
-  for (const id of ["bStart","bStop","bIdent","bOff","bDrop"]) $(id).disabled = !on;
+  for (const id of ["bStart","bStop","bIdent","bOff","bDrop","bDfu"]) $(id).disabled = !on;
   $("bDisconnect").disabled = !on && !wantConnected;
 }
 
@@ -391,6 +394,16 @@ async function start() {
 }
 async function stop() { await command(2); setTimeout(() => command(5), 300); }
 function identify() { command(6, new Uint8Array([5])); }
+async function updateMode() {
+  if (!confirmInline("bDfu", "Tap again: restart for update")) return;
+  const r = await command(0x0A, new Uint8Array([0xD5]));
+  if (!r) { log("No reply. If the sensor light is now blinking continuously it is in update mode anyway: continue in nRF Device Firmware Update."); return; }
+  if (r.result === 0) {
+    wantConnected = false;
+    log("Sensor restarting in update mode. Close this page, open nRF Device Firmware Update, tap Select next to Device (fresh scan), pick AdaDFU, then Upload.");
+  } else if (r.result === 2) log("Stop the recording first, then try again.");
+  else log("This firmware can't enter update mode from here (needs 0.3.4+ on the Holyiot). Use the coin-cell + button method this time.");
+}
 async function powerOff() { if (!confirmInline("bOff", "Tap again to power off")) return; await command(8); wantConnected = false; }
 function confirmInline(id, txt) {
   const b = $(id);
@@ -644,6 +657,7 @@ $("bStop").onclick = stop;
 $("bIdent").onclick = identify;
 $("bDrop").onclick = simulateDropout;
 $("bOff").onclick = powerOff;
+$("bDfu").onclick = updateMode;
 $("bCsv").onclick = saveCsv;
 $("bCopy").onclick = copyCsv;
 $("bClear").onclick = () => { if (confirmInline("bClear", "Tap again to clear")) { rec = status && status.sessionId ? newRecording(status) : null; if (rec) rec.fresh = true; markers = []; renderMarks(); renderStats(); log("Cleared."); } };
