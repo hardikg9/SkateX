@@ -369,6 +369,7 @@ function onResp(dv) {
   if (code === 0xE3) return;                               // helmet double-tap: feature removed, ignore old firmware
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
+  else if (code === 0xE4) log(dv.getUint8(1) === 1 ? "Sensor stopped the recording: no movement for 30 min" : "Sensor going to sleep (no movement). Move it to wake it.");
   else if (code === 0xE2) {
     // the sensor reports samples it dropped before they were acknowledged; most were already received live
     const first = dv.getUint32(1, true), count = dv.getUint32(5, true);
