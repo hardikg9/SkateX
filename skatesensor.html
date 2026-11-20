@@ -230,7 +230,7 @@ function newRecording(st) {
            gaps: [], lost: 0, packets: 0, resentPackets: 0, rxStart: performance.now(), rateWin: [] };
 }
 let pendingReply = null;  // {code, resolve}
-let writeFails = 0;
+let writeFails = 0, noReplies = 0;
 let cmdChain = Promise.resolve();
 let resendQueue = [], resendBusy = false, resendSince = 0;
 let ackTimer = null, reconnectTimer = null, dropUntil = 0, dropTick = null;
@@ -353,7 +353,12 @@ function command(code, params) {
       return null;
     }
     const r = await p; pendingReply = null;
-    if (r === null) log(`${CMD[code]}: no reply`);
+    if (r === null) {
+      log(`${CMD[code]}: no reply`);
+      // iOS / Bluefy can keep a dead link "connected" for a long time (20 Nov walk test: 40 s). Three silent
+      // commands in a row (~15 s of ACKs) = stuck: drop it and reconnect; the sensor's buffer covers the gap.
+      if (++noReplies >= 3 && device.gatt.connected) { log("No replies from the sensor – forcing a reconnect"); noReplies = 0; device.gatt.disconnect(); }
+    } else noReplies = 0;
     else if (code === 9) {}
     else if (r.result !== 0 || (code !== 7 && code !== 5 && code !== 4)) log(`${CMD[code]}: ${RESULT[r.result] || r.result}`);
     return r;
