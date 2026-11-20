@@ -359,6 +359,7 @@ function command(code, params) {
       // commands in a row (~15 s of ACKs) = stuck: drop it and reconnect; the sensor's buffer covers the gap.
       if (++noReplies >= 3 && device.gatt.connected) { log("No replies from the sensor – forcing a reconnect"); noReplies = 0; device.gatt.disconnect(); }
     } else noReplies = 0;
+    if (r === null) {}
     else if (code === 9) {}
     else if (r.result !== 0 || (code !== 7 && code !== 5 && code !== 4)) log(`${CMD[code]}: ${RESULT[r.result] || r.result}`);
     return r;
