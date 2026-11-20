@@ -419,10 +419,15 @@ function confirmInline(id, txt) {
   return false;
 }
 
+let lastAckUpTo = -1;
 function sendAck() {
   if (!rec || !device || !device.gatt.connected) return;
   const upTo = rec.expected - 1;
-  if (upTo >= 0) command(7, u32(upTo));
+  // Sensor idle, nothing missing and this point already acknowledged: stay quiet, so an idle connection
+  // does not keep the sensor awake (20 Nov: the 5 s ACKs stopped a still tag from sleeping).
+  const missing = Math.max(0, rec.maxIdx + 1 - rec.received - rec.lost);
+  if (status && status.state === 0 && !missing && !resendBusy && upTo === lastAckUpTo) return;
+  if (upTo >= 0) { command(7, u32(upTo)); lastAckUpTo = upTo; }
 }
 
 // ---------------------------------------------------------------- markers
