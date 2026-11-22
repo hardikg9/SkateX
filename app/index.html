@@ -958,53 +958,93 @@ function sensorMatch(e, x, startIso, dur) {          // a sensor recording cover
   const hit = (S.sensorRuns || []).find(r => r.skater_id === e.skater_id && r.t0 <= b && r.t1 >= a);
   return hit ? { go: (hit.start - a) / 1000, laps: hit.laps.map(v => (v - a) / 1000), fin: (hit.finish - a) / 1000 } : null;
 }
+// full-screen camera, landscape: video controls on the left (record/stop, zoom), timing on the right (GO, LAP, FINISH),
+// live race time and laps in the bottom bar. Nothing to look away for: one thumb each side.
 screens.racevideo = () => {
   const e = VID.race && (S.events || []).find(z => z.id === VID.race.eid), x = e && e.races.find(z => z.id === VID.race.rid);
   if (!x) { setTimeout(() => go("race")); return ""; }
-  const recording = VID.rec && VID.rec.state === "recording", M = VID.marks;
-  const big = "position:absolute;left:12px;right:12px;bottom:12px;width:auto;font-size:30px;font-weight:800;padding:26px 0;border-radius:16px";
-  return `${back("race", "")}<h1>${T("race_video_title", { m: x.m })}</h1><p class="sub">${T("race_video_d")}</p>
-  ${VID.err ? `<div class="card"><b>${T("cam_error")}</b><div class="meta">${esc(VID.err)}</div></div>` : ""}
-  <div style="position:relative;border-radius:14px;overflow:hidden;background:#000">
-    <video id="cam" autoplay muted playsinline style="width:100%;display:block;aspect-ratio:9/13;object-fit:cover"></video>
-    ${recording ? `<div id="rectime" style="position:absolute;top:10px;left:10px;background:var(--danger);color:#fff;border-radius:8px;padding:3px 8px;font-weight:700">● 00:00.0</div>
-      ${M.go != null ? `<div id="racetime" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 8px;font-weight:700"></div>` : ""}
-      ${M.go == null ? `<button id="vgo" style="${big};background:var(--good, #1a7f37);color:#fff">${T("mark_go")}</button>`
-        : M.fin == null ? `<button id="vfin" style="${big};background:#fff;color:#121826">${T("mark_fin")}</button>`
-        : `<div style="${big};background:rgba(0,0,0,.6);color:#fff;text-align:center;font-size:22px">${T("video_finishing")}</div>`}` : ""}
-  </div>
-  ${recording ? `<div class="row">${M.go != null ? `<button class="secondary" id="vundo">${T("video_undo")}</button>` : ""}<button id="vstop" style="background:var(--danger)">${T("video_stop")}</button></div>`
-    : `<button id="vrec" ${VID.stream ? "" : "disabled"}>${T("video_record")}</button><div class="hint">${T("video_tip")}</div>`}`;
+  const B = "border:0;border-radius:14px;font-weight:800;width:100%;margin:0;";
+  return `<div id="rv" style="position:fixed;inset:0;z-index:1000;background:#000;color:#fff;display:grid;grid-template-columns:88px 1fr 128px;grid-template-rows:1fr 54px">
+    <div style="display:flex;flex-direction:column;gap:10px;padding:10px;align-items:stretch;justify-content:space-between">
+      <button id="rvx" style="${B}background:rgba(255,255,255,.15);color:#fff;padding:8px" aria-label="${T("close")}">✕</button>
+      <button id="rvrec" style="${B}background:var(--danger);color:#fff;aspect-ratio:1;border-radius:50%;font-size:15px" ${VID.stream ? "" : "disabled"}>${T("video_rec_short")}</button>
+      <div id="rvzoom" style="display:flex;flex-direction:column;gap:8px;align-items:stretch">
+        <button id="rvzin" style="${B}background:rgba(255,255,255,.15);color:#fff;font-size:22px;padding:6px">+</button>
+        <div id="rvzl" style="text-align:center;font-size:12px;opacity:.8">1×</div>
+        <button id="rvzout" style="${B}background:rgba(255,255,255,.15);color:#fff;font-size:22px;padding:6px">−</button></div>
+    </div>
+    <div style="position:relative;overflow:hidden">
+      <video id="cam" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <div style="position:absolute;top:8px;left:8px;font-size:13px;font-weight:700;background:rgba(0,0,0,.55);border-radius:8px;padding:3px 8px">${x.m} m · ${esc(e.name || "")}</div>
+      ${VID.err ? `<div style="position:absolute;inset:20px;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.75);border-radius:12px;padding:16px"><div><b>${T("cam_error")}</b><br>${esc(VID.err)}</div></div>` : ""}
+      <div id="rvhint" style="position:absolute;bottom:8px;left:8px;right:8px;text-align:center;font-size:12px;opacity:.85">${T("video_tip")}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:10px">
+      <button id="rvundo" style="${B}background:rgba(255,255,255,.15);color:#fff;padding:8px;font-size:13px;visibility:hidden">${T("video_undo")}</button>
+      <button id="rvgo" style="${B}flex:1;background:#1a9c48;color:#fff;font-size:26px">${T("mark_go")}</button>
+      <button id="rvlap" style="${B}flex:1;background:#fff;color:#121826;font-size:24px;display:none">${T("mark_lap")}</button>
+      <button id="rvfin" style="${B}flex:1;background:#f2b705;color:#121826;font-size:22px;display:none">${T("mark_fin")}</button>
+    </div>
+    <div id="rvbar" style="grid-column:1/4;display:flex;align-items:center;justify-content:space-around;background:#111;font-variant-numeric:tabular-nums;font-size:15px;gap:8px;padding:0 8px">
+      <span id="rvrect" style="color:#ff6b6b">${T("video_ready")}</span><span>${T("race_time")} <b id="rvrace">–</b></span>
+      <span>${T("lap_word")} <b id="rvlapn">–</b></span><span>${T("this_lap")} <b id="rvcur">–</b></span><span>${T("last_lap")} <b id="rvlast">–</b></span></div>
+  </div>`;
 };
 screens.racevideo.init = async () => {
-  const cam = $("#cam"); if (!cam) return;
+  if (!$("#rv")) return;
+  try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch (er) { /* iOS: turn the phone sideways */ }
   if (!VID.stream && !VID.err) {
-    try { VID.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: true }); }
+    try { VID.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true }); }
     catch (er) { VID.err = er.name === "NotAllowedError" ? t("cam_denied") : (er.message || String(er)); return render(); }
     return render();
   }
-  if (VID.stream) cam.srcObject = VID.stream;
-  const now = () => +((performance.now() - VID.started) / 1000).toFixed(2), buzz = () => navigator.vibrate && navigator.vibrate(40);
-  if ($("#vrec")) $("#vrec").onclick = () => {
+  const cam = $("#cam"); if (VID.stream) cam.srcObject = VID.stream;
+  const M = VID.marks, now = () => (performance.now() - VID.started) / 1000, buzz = () => navigator.vibrate && navigator.vibrate(40);
+  const rec = () => VID.rec && VID.rec.state === "recording";
+  // zoom: the camera's own zoom where the phone offers it (recorded in the video); otherwise hidden
+  const track = VID.stream && VID.stream.getVideoTracks()[0], caps = track && track.getCapabilities ? track.getCapabilities() : {};
+  if (!caps.zoom) $("#rvzoom").style.visibility = "hidden";
+  else { VID.zoom = VID.zoom || caps.zoom.min || 1;
+    const setZ = z => { VID.zoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, z)); track.applyConstraints({ advanced: [{ zoom: VID.zoom }] }).catch(() => {}); $("#rvzl").textContent = VID.zoom.toFixed(1) + "×"; };
+    $("#rvzin").onclick = () => setZ(VID.zoom + Math.max(caps.zoom.step || 0.1, 0.5)); $("#rvzout").onclick = () => setZ(VID.zoom - Math.max(caps.zoom.step || 0.1, 0.5)); setZ(VID.zoom); }
+  const paint = () => {                               // buttons follow the race: GO, then LAP + FINISH, then nothing
+    const on = rec();
+    $("#rvrec").textContent = on ? t("video_stop_short") : t("video_rec_short");
+    $("#rvgo").style.display = on && M.go == null ? "" : "none";
+    $("#rvlap").style.display = $("#rvfin").style.display = on && M.go != null && M.fin == null ? "" : "none";
+    $("#rvundo").style.visibility = on && M.go != null ? "visible" : "hidden";
+    if (!on && M.go == null) { $("#rvgo").style.display = ""; $("#rvgo").disabled = true; $("#rvgo").style.opacity = .35; } else { $("#rvgo").disabled = false; $("#rvgo").style.opacity = 1; }
+    $("#rvhint").style.display = on ? "none" : "";
+  };
+  const bar = () => {
+    const el = VID.started ? now() : 0;
+    $("#rvrect").textContent = rec() ? "● " + fmtTime(el) : t("video_ready");
+    if (M.go != null) { const end = M.fin ?? el, pts = [M.go, ...M.laps], last = pts.length > 1 ? pts.at(-1) - pts.at(-2) : null;
+      $("#rvrace").textContent = fmtTime(end - M.go); $("#rvlapn").textContent = String(M.laps.length + (M.fin == null ? 1 : 0));
+      $("#rvcur").textContent = M.fin == null ? fmtTime(el - pts.at(-1)) : "–"; $("#rvlast").textContent = last ? fmtLap(last) + " s" : "–"; }
+    if (rec() && $("#rv")) requestAnimationFrame(bar);
+  };
+  $("#rvx").onclick = () => { if (rec() && !confirm(t("video_discard_q"))) return; clearTimeout(VID.autostop); if (rec()) { VID.rec.onstop = null; VID.rec.stop(); }
+    vidStop(); try { document.exitFullscreen && document.fullscreenElement && document.exitFullscreen(); } catch (er) {} go("race"); };
+  $("#rvrec").onclick = () => {
+    if (rec()) { clearTimeout(VID.autostop); return VID.rec.stop(); }
     const type = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
-    VID.chunks = []; VID.marks = { go: null, laps: [], fin: null }; VID.rec = new MediaRecorder(VID.stream, type ? { mimeType: type } : undefined);
+    VID.chunks = []; VID.marks.go = null; VID.marks.laps = []; VID.marks.fin = null;
+    VID.rec = new MediaRecorder(VID.stream, type ? { mimeType: type } : undefined);
     VID.rec.ondataavailable = ev => ev.data.size && VID.chunks.push(ev.data);
     VID.rec.onstop = async () => {
       VID.blob = new Blob(VID.chunks, { type: VID.rec.mimeType || "video/webm" }); VID.url = URL.createObjectURL(VID.blob); vidStop();
+      try { document.exitFullscreen && document.fullscreenElement && document.exitFullscreen(); } catch (er) {}
       VID.suggestGo = await detectStartSignal(VID.blob, VID.marks.go);
       go("racemarks");
     };
-    VID.t0 = new Date().toISOString(); VID.started = performance.now(); VID.rec.start(500); render();
+    VID.t0 = new Date().toISOString(); VID.started = performance.now(); VID.rec.start(500); paint(); bar();
   };
-  if ($("#vgo")) $("#vgo").onclick = () => { VID.marks.go = now(); buzz(); render(); };
-  if ($("#vfin")) $("#vfin").onclick = () => { VID.marks.fin = now(); buzz(); render();
-    VID.autostop = setTimeout(() => VID.rec && VID.rec.state === "recording" && VID.rec.stop(), 3000); };   // keep 3 s after the line, then stop
-  if ($("#vundo")) $("#vundo").onclick = () => { clearTimeout(VID.autostop); if (VID.marks.fin != null) VID.marks.fin = null; else VID.marks.go = null; render(); };
-  if ($("#vstop")) $("#vstop").onclick = () => { clearTimeout(VID.autostop); VID.rec.stop(); };
-  if ($("#rectime")) { const tick = () => { if (!$("#rectime") || !VID.rec || VID.rec.state !== "recording") return;
-      const el = (performance.now() - VID.started) / 1000; $("#rectime").textContent = "● " + fmtTime(el);
-      if ($("#racetime") && VID.marks.go != null) $("#racetime").textContent = fmtTime((VID.marks.fin ?? el) - VID.marks.go);
-      requestAnimationFrame(tick); }; tick(); }
+  $("#rvgo").onclick = () => { if (!rec()) return; M.go = +now().toFixed(2); buzz(); paint(); };
+  $("#rvlap").onclick = () => { M.laps.push(+now().toFixed(2)); buzz(); paint(); };
+  $("#rvfin").onclick = () => { M.fin = +now().toFixed(2); buzz(); paint(); VID.autostop = setTimeout(() => rec() && VID.rec.stop(), 3000); };
+  $("#rvundo").onclick = () => { clearTimeout(VID.autostop); if (M.fin != null) M.fin = null; else if (M.laps.length) M.laps.pop(); else M.go = null; paint(); };
+  paint(); bar();
 };
 // after filming: the race time from the two taps; optionally fine-tune Go and the finish on the video (the camera follows
 // the skater, so the start and the finish line are in shot even when the laps are not)
@@ -1015,6 +1055,7 @@ screens.racemarks = () => {
   return `${back("race", "")}<h1>${T("marks_title", { m: x.m })}</h1>
   <div class="stats" style="grid-template-columns:1fr"><div class="stat"><div class="l">${T("race_time")}</div><div class="v" style="font-size:34px">${tot ? fmtLap(tot) + " s" : "–"}</div>
     <div class="l">${M.go != null ? T("mark_go") + " " + fmtTime(M.go) : ""}${M.fin != null ? " · " + T("mark_fin") + " " + fmtTime(M.fin) : ""}</div></div></div>
+  ${M.laps.length ? `<div class="chips" style="flex-wrap:wrap">${[M.go, ...M.laps, ...(M.fin != null ? [M.fin] : [])].slice(1).map((v, i, a) => `<span class="chip">${T("lap_n", { n: i + 1 })}: ${fmtLap(v - (i ? a[i - 1] : M.go))}</span>`).join("")}</div>` : ""}
   ${VID.suggestGo != null && M.go != null && Math.abs(M.go - VID.suggestGo) > 0.15 ? `<div class="card tap" id="sgo"><b>${T("suggest_go", { t: fmtTime(VID.suggestGo), d: fmtLap(Math.abs(M.go - VID.suggestGo)) })}</b><div class="meta">${T("suggest_go_d")}</div></div>` : ""}
   <h2>${T("finetune")}</h2><p class="sub">${T("finetune_d")}</p>
   <video id="pv" src="${VID.url}" controls playsinline style="width:100%;border-radius:14px;background:#000;max-height:42vh"></video>
@@ -1040,7 +1081,8 @@ screens.racemarks.init = () => {
     if (M.go == null || M.fin == null || M.fin <= M.go) return $("#err").textContent = t("marks_need");
     const e = (S.events || []).find(z => z.id === VID.race.eid), x = e.races.find(z => z.id === VID.race.rid);
     x.timing = { source: "video", at: new Date(new Date(VID.t0).getTime() + M.go * 1000).toISOString(), video_start: VID.t0,
-                 marks: { go: M.go, fin: M.fin }, laps: [], total: +(M.fin - M.go).toFixed(2) };
+                 marks: { go: M.go, laps: M.laps.slice(), fin: M.fin }, total: +(M.fin - M.go).toFixed(2),
+                 laps: M.laps.length ? [M.go, ...M.laps.filter(v => v > M.go && v < M.fin), M.fin].slice(1).map((v, i, a) => +(v - (i ? a[i - 1] : M.go)).toFixed(2)) : [] };
     S.viewEvent = e.id; persist(); toast(t("timing_saved")); go("race");
   };
 };
