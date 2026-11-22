@@ -941,14 +941,15 @@ const VID = { stream: null, rec: null, chunks: [], blob: null, url: null, t0: nu
 function vidStop() { if (VID.stream) VID.stream.getTracks().forEach(tr => tr.stop()); VID.stream = null; }
 function vidReset(race) { vidStop(); if (VID.url) URL.revokeObjectURL(VID.url);
   Object.assign(VID, { rec: null, chunks: [], blob: null, url: null, t0: null, live: [], marks: { go: null, laps: [], fin: null }, race, suggestGo: null, err: null }); }
-async function detectStartSignal(blob) {             // first sharp, loud sound (whistle, gun, "Go!") after the first second
+async function detectStartSignal(blob, near) {       // sharp, loud sound (whistle, gun, "Go!"): within 3 s before the Go tap if there is one
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext, ctx = new Ctx();
     const buf = await ctx.decodeAudioData(await blob.arrayBuffer()); ctx.close && ctx.close();
     const d = buf.getChannelData(0), win = Math.round(buf.sampleRate * 0.02), E = [];
     for (let i = 0; i + win < d.length; i += win) { let s = 0; for (let j = i; j < i + win; j++) s += d[j] * d[j]; E.push(Math.sqrt(s / win)); }
     const sorted = [...E].sort((a, b) => a - b), med = sorted[Math.floor(E.length / 2)] || 1e-6, mx = sorted[E.length - 1];
-    for (let i = 50; i < E.length; i++) if (E[i] > Math.max(med * 6, mx * 0.35) && E[i] > 2 * E[i - 5]) return +(i * 0.02).toFixed(2);
+    const i0 = near != null ? Math.max(5, Math.round((near - 3) / 0.02)) : 50, i1 = near != null ? Math.round((near + 0.3) / 0.02) : E.length;
+    for (let i = i0; i < Math.min(i1, E.length); i++) if (E[i] > Math.max(med * 6, mx * 0.35) && E[i] > 2 * E[i - 5]) return +(i * 0.02).toFixed(2);
   } catch (e) { /* no sound track or format not decodable here */ }
   return null;
 }
@@ -960,15 +961,19 @@ function sensorMatch(e, x, startIso, dur) {          // a sensor recording cover
 screens.racevideo = () => {
   const e = VID.race && (S.events || []).find(z => z.id === VID.race.eid), x = e && e.races.find(z => z.id === VID.race.rid);
   if (!x) { setTimeout(() => go("race")); return ""; }
-  const recording = VID.rec && VID.rec.state === "recording";
+  const recording = VID.rec && VID.rec.state === "recording", M = VID.marks;
+  const big = "position:absolute;left:12px;right:12px;bottom:12px;width:auto;font-size:30px;font-weight:800;padding:26px 0;border-radius:16px";
   return `${back("race", "")}<h1>${T("race_video_title", { m: x.m })}</h1><p class="sub">${T("race_video_d")}</p>
   ${VID.err ? `<div class="card"><b>${T("cam_error")}</b><div class="meta">${esc(VID.err)}</div></div>` : ""}
   <div style="position:relative;border-radius:14px;overflow:hidden;background:#000">
-    <video id="cam" autoplay muted playsinline style="width:100%;display:block;aspect-ratio:9/12;object-fit:cover"></video>
+    <video id="cam" autoplay muted playsinline style="width:100%;display:block;aspect-ratio:9/13;object-fit:cover"></video>
     ${recording ? `<div id="rectime" style="position:absolute;top:10px;left:10px;background:var(--danger);color:#fff;border-radius:8px;padding:3px 8px;font-weight:700">● 00:00.0</div>
-      <button id="vmark" class="secondary" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;background:rgba(255,255,255,.9);color:#121826">${T("video_mark")}</button>` : ""}
+      ${M.go != null ? `<div id="racetime" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 8px;font-weight:700"></div>` : ""}
+      ${M.go == null ? `<button id="vgo" style="${big};background:var(--good, #1a7f37);color:#fff">${T("mark_go")}</button>`
+        : M.fin == null ? `<button id="vfin" style="${big};background:#fff;color:#121826">${T("mark_fin")}</button>`
+        : `<div style="${big};background:rgba(0,0,0,.6);color:#fff;text-align:center;font-size:22px">${T("video_finishing")}</div>`}` : ""}
   </div>
-  ${recording ? `<div class="hint">${T("video_mark_hint", { n: VID.live.length })}</div><button id="vstop" style="background:var(--danger)">${T("video_stop")}</button>`
+  ${recording ? `<div class="row">${M.go != null ? `<button class="secondary" id="vundo">${T("video_undo")}</button>` : ""}<button id="vstop" style="background:var(--danger)">${T("video_stop")}</button></div>`
     : `<button id="vrec" ${VID.stream ? "" : "disabled"}>${T("video_record")}</button><div class="hint">${T("video_tip")}</div>`}`;
 };
 screens.racevideo.init = async () => {
@@ -979,38 +984,44 @@ screens.racevideo.init = async () => {
     return render();
   }
   if (VID.stream) cam.srcObject = VID.stream;
+  const now = () => +((performance.now() - VID.started) / 1000).toFixed(2), buzz = () => navigator.vibrate && navigator.vibrate(40);
   if ($("#vrec")) $("#vrec").onclick = () => {
     const type = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
-    VID.chunks = []; VID.live = []; VID.rec = new MediaRecorder(VID.stream, type ? { mimeType: type } : undefined);
+    VID.chunks = []; VID.marks = { go: null, laps: [], fin: null }; VID.rec = new MediaRecorder(VID.stream, type ? { mimeType: type } : undefined);
     VID.rec.ondataavailable = ev => ev.data.size && VID.chunks.push(ev.data);
     VID.rec.onstop = async () => {
       VID.blob = new Blob(VID.chunks, { type: VID.rec.mimeType || "video/webm" }); VID.url = URL.createObjectURL(VID.blob); vidStop();
-      VID.marks = { go: VID.live[0] ?? null, laps: VID.live.slice(1), fin: null };        // rough live marks, if any
-      VID.suggestGo = await detectStartSignal(VID.blob);
+      VID.suggestGo = await detectStartSignal(VID.blob, VID.marks.go);
       go("racemarks");
     };
     VID.t0 = new Date().toISOString(); VID.started = performance.now(); VID.rec.start(500); render();
   };
-  if ($("#vmark")) $("#vmark").onclick = () => { VID.live.push(+((performance.now() - VID.started) / 1000).toFixed(2)); if (navigator.vibrate) navigator.vibrate(30); $(".hint").textContent = t("video_mark_hint", { n: VID.live.length }); };
-  if ($("#vstop")) $("#vstop").onclick = () => VID.rec.stop();
-  if ($("#rectime")) { const tick = () => { if (!$("#rectime") || !VID.rec || VID.rec.state !== "recording") return; $("#rectime").textContent = "● " + fmtTime((performance.now() - VID.started) / 1000); requestAnimationFrame(tick); }; tick(); }
+  if ($("#vgo")) $("#vgo").onclick = () => { VID.marks.go = now(); buzz(); render(); };
+  if ($("#vfin")) $("#vfin").onclick = () => { VID.marks.fin = now(); buzz(); render();
+    VID.autostop = setTimeout(() => VID.rec && VID.rec.state === "recording" && VID.rec.stop(), 3000); };   // keep 3 s after the line, then stop
+  if ($("#vundo")) $("#vundo").onclick = () => { clearTimeout(VID.autostop); if (VID.marks.fin != null) VID.marks.fin = null; else VID.marks.go = null; render(); };
+  if ($("#vstop")) $("#vstop").onclick = () => { clearTimeout(VID.autostop); VID.rec.stop(); };
+  if ($("#rectime")) { const tick = () => { if (!$("#rectime") || !VID.rec || VID.rec.state !== "recording") return;
+      const el = (performance.now() - VID.started) / 1000; $("#rectime").textContent = "● " + fmtTime(el);
+      if ($("#racetime") && VID.marks.go != null) $("#racetime").textContent = fmtTime((VID.marks.fin ?? el) - VID.marks.go);
+      requestAnimationFrame(tick); }; tick(); }
 };
+// after filming: the race time from the two taps; optionally fine-tune Go and the finish on the video (the camera follows
+// the skater, so the start and the finish line are in shot even when the laps are not)
 screens.racemarks = () => {
   const e = VID.race && (S.events || []).find(z => z.id === VID.race.eid), x = e && e.races.find(z => z.id === VID.race.rid);
   if (!x || !VID.url) { setTimeout(() => go("race")); return ""; }
-  const M = VID.marks, sm = sensorMatch(e, x, VID.t0, 0);
-  const all = [...(M.go != null ? [{ k: "go", v: M.go }] : []), ...M.laps.map((v, i) => ({ k: "lap", i, v })), ...(M.fin != null ? [{ k: "fin", v: M.fin }] : [])].sort((a, b) => a.v - b.v);
-  const tot = M.go != null && M.fin != null ? M.fin - M.go : null;
-  return `${back("race", "")}<h1>${T("marks_title", { m: x.m })}</h1><p class="sub">${T("marks_d")}</p>
-  <video id="pv" src="${VID.url}" controls playsinline style="width:100%;border-radius:14px;background:#000;max-height:46vh"></video>
-  <div class="row" style="align-items:center"><button class="secondary" id="vb">−0.1 s</button><div class="timer" id="vt" style="font-size:26px;margin:0">00:00.0</div><button class="secondary" id="vf">+0.1 s</button></div>
-  <div class="row"><button id="mgo">${T("mark_go")}</button><button class="secondary" id="mlap">${T("mark_lap")}</button><button id="mfin" style="background:var(--ink);color:var(--bg)">${T("mark_fin")}</button></div>
-  ${VID.suggestGo != null && (M.go == null || Math.abs(M.go - VID.suggestGo) > 0.3) ? `<div class="card tap" id="sgo"><b>${T("suggest_go", { t: fmtTime(VID.suggestGo) })}</b><div class="meta">${T("suggest_go_d")}</div></div>` : ""}
+  const M = VID.marks, sm = sensorMatch(e, x, VID.t0, 0), tot = M.go != null && M.fin != null ? M.fin - M.go : null;
+  return `${back("race", "")}<h1>${T("marks_title", { m: x.m })}</h1>
+  <div class="stats" style="grid-template-columns:1fr"><div class="stat"><div class="l">${T("race_time")}</div><div class="v" style="font-size:34px">${tot ? fmtLap(tot) + " s" : "–"}</div>
+    <div class="l">${M.go != null ? T("mark_go") + " " + fmtTime(M.go) : ""}${M.fin != null ? " · " + T("mark_fin") + " " + fmtTime(M.fin) : ""}</div></div></div>
+  ${VID.suggestGo != null && M.go != null && Math.abs(M.go - VID.suggestGo) > 0.15 ? `<div class="card tap" id="sgo"><b>${T("suggest_go", { t: fmtTime(VID.suggestGo), d: fmtLap(Math.abs(M.go - VID.suggestGo)) })}</b><div class="meta">${T("suggest_go_d")}</div></div>` : ""}
+  <h2>${T("finetune")}</h2><p class="sub">${T("finetune_d")}</p>
+  <video id="pv" src="${VID.url}" controls playsinline style="width:100%;border-radius:14px;background:#000;max-height:42vh"></video>
+  <div class="row"><button class="secondary" id="cgo" ${M.go == null ? "disabled" : ""}>${T("check_go")}</button><button class="secondary" id="cfin" ${M.fin == null ? "disabled" : ""}>${T("check_fin")}</button></div>
+  <div class="row" style="align-items:center"><button class="secondary" id="vb">−0.1 s</button><div class="timer" id="vt" style="font-size:24px;margin:0">00:00.0</div><button class="secondary" id="vf">+0.1 s</button></div>
+  <div class="row"><button class="secondary" id="mgo">${T("set_go_here")}</button><button class="secondary" id="mfin">${T("set_fin_here")}</button></div>
   <div class="card">${sm ? `<b>${T("sensor_matched")}</b>` : `<div class="meta">${T("sensor_auto_d")}</div>`}</div>
-  <div class="card">${all.length ? all.map(m => `<div class="kv"><span>${m.k === "go" ? T("mark_go") : m.k === "fin" ? T("mark_fin") : T("lap_n", { n: m.i + 1 })}</span>
-      <span><a href="#" data-seek="${m.v}">${fmtTime(m.v)}</a> <button class="small secondary" style="width:auto;padding:2px 10px" data-del="${m.k}:${m.i ?? ""}">×</button></span></div>`).join("")
-      : `<div class="meta">${T("marks_none")}</div>`}
-    ${tot ? `<div class="kv"><span><b>${T("race_time")}</b></span><span><b>${fmtLap(tot)} s</b></span></div>` : ""}</div>
   <div class="err" id="err"></div>
   <button id="msave">${T("marks_save")}</button>
   <a class="noprint" href="${VID.url}" download="race-${x.m}m-${(VID.t0 || "").slice(0, 10)}.${(VID.blob.type || "").includes("mp4") ? "mp4" : "webm"}"><button class="secondary" type="button">${T("video_save_phone")}</button></a>`;
@@ -1019,22 +1030,17 @@ screens.racemarks.init = () => {
   const pv = $("#pv"); if (!pv) return;
   const show = () => { $("#vt").textContent = fmtTime(pv.currentTime || 0); };
   pv.ontimeupdate = show; pv.onseeked = show;
-  const step = d => { pv.pause(); pv.currentTime = Math.max(0, (pv.currentTime || 0) + d); };
-  $("#vb").onclick = () => step(-0.1); $("#vf").onclick = () => step(0.1);
-  const at = () => +(pv.currentTime || 0).toFixed(2), M = VID.marks;
-  $("#mgo").onclick = () => { M.go = at(); render(); };
-  $("#mlap").onclick = () => { M.laps.push(at()); M.laps.sort((a, b) => a - b); render(); };
-  $("#mfin").onclick = () => { M.fin = at(); render(); };
+  const seek = v => { pv.pause(); pv.currentTime = Math.max(0, v); };
+  $("#vb").onclick = () => seek((pv.currentTime || 0) - 0.1); $("#vf").onclick = () => seek((pv.currentTime || 0) + 0.1);
+  const M = VID.marks, at = () => +(pv.currentTime || 0).toFixed(2);
+  $("#cgo").onclick = () => seek(M.go - 1); $("#cfin").onclick = () => seek(M.fin - 1);
+  $("#mgo").onclick = () => { M.go = at(); render(); }; $("#mfin").onclick = () => { M.fin = at(); render(); };
   if ($("#sgo")) $("#sgo").onclick = () => { M.go = VID.suggestGo; render(); };
-  document.querySelectorAll("[data-seek]").forEach(a => a.onclick = ev => { ev.preventDefault(); pv.pause(); pv.currentTime = +a.dataset.seek; });
-  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { const [k, i] = b.dataset.del.split(":");
-    if (k === "go") M.go = null; else if (k === "fin") M.fin = null; else M.laps.splice(+i, 1); render(); });
   $("#msave").onclick = () => {
     if (M.go == null || M.fin == null || M.fin <= M.go) return $("#err").textContent = t("marks_need");
-    const pts = [M.go, ...M.laps.filter(v => v > M.go && v < M.fin), M.fin], laps = pts.slice(1).map((v, i) => +(v - pts[i]).toFixed(2));
     const e = (S.events || []).find(z => z.id === VID.race.eid), x = e.races.find(z => z.id === VID.race.rid);
     x.timing = { source: "video", at: new Date(new Date(VID.t0).getTime() + M.go * 1000).toISOString(), video_start: VID.t0,
-                 marks: { go: M.go, laps: M.laps.slice(), fin: M.fin }, laps: M.laps.length ? laps : [], total: +(M.fin - M.go).toFixed(2) };
+                 marks: { go: M.go, fin: M.fin }, laps: [], total: +(M.fin - M.go).toFixed(2) };
     S.viewEvent = e.id; persist(); toast(t("timing_saved")); go("race");
   };
 };
