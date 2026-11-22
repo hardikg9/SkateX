@@ -143,7 +143,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.5.1";
+const APP_VERSION = "0.6.0";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -933,6 +933,112 @@ function loadDemo() {
   persist(); go("home"); render();
 }
 
+// ---------------------------------------------------------------- race video: film the race in the app, mark Go / laps / finish on the video afterwards
+// Nothing to press while filming (an optional big Mark button can drop rough marks). After Stop: scrub the video frame
+// by frame and set Go, each lap and the finish. Go is suggested from the start signal in the sound track; with a sensor
+// recording that covers the race, start, laps and finish are filled in from it and only need a check.
+const VID = { stream: null, rec: null, chunks: [], blob: null, url: null, t0: null, live: [], marks: { go: null, laps: [], fin: null }, race: null, suggestGo: null, err: null };
+function vidStop() { if (VID.stream) VID.stream.getTracks().forEach(tr => tr.stop()); VID.stream = null; }
+function vidReset(race) { vidStop(); if (VID.url) URL.revokeObjectURL(VID.url);
+  Object.assign(VID, { rec: null, chunks: [], blob: null, url: null, t0: null, live: [], marks: { go: null, laps: [], fin: null }, race, suggestGo: null, err: null }); }
+async function detectStartSignal(blob) {             // first sharp, loud sound (whistle, gun, "Go!") after the first second
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext, ctx = new Ctx();
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer()); ctx.close && ctx.close();
+    const d = buf.getChannelData(0), win = Math.round(buf.sampleRate * 0.02), E = [];
+    for (let i = 0; i + win < d.length; i += win) { let s = 0; for (let j = i; j < i + win; j++) s += d[j] * d[j]; E.push(Math.sqrt(s / win)); }
+    const sorted = [...E].sort((a, b) => a - b), med = sorted[Math.floor(E.length / 2)] || 1e-6, mx = sorted[E.length - 1];
+    for (let i = 50; i < E.length; i++) if (E[i] > Math.max(med * 6, mx * 0.35) && E[i] > 2 * E[i - 5]) return +(i * 0.02).toFixed(2);
+  } catch (e) { /* no sound track or format not decodable here */ }
+  return null;
+}
+function sensorMatch(e, x, startIso, dur) {          // a sensor recording covering the race fills the marks (real app); prototype: none yet
+  const a = new Date(startIso).getTime(), b = a + dur * 1000;
+  const hit = (S.sensorRuns || []).find(r => r.skater_id === e.skater_id && r.t0 <= b && r.t1 >= a);
+  return hit ? { go: (hit.start - a) / 1000, laps: hit.laps.map(v => (v - a) / 1000), fin: (hit.finish - a) / 1000 } : null;
+}
+screens.racevideo = () => {
+  const e = VID.race && (S.events || []).find(z => z.id === VID.race.eid), x = e && e.races.find(z => z.id === VID.race.rid);
+  if (!x) { setTimeout(() => go("race")); return ""; }
+  const recording = VID.rec && VID.rec.state === "recording";
+  return `${back("race", "")}<h1>${T("race_video_title", { m: x.m })}</h1><p class="sub">${T("race_video_d")}</p>
+  ${VID.err ? `<div class="card"><b>${T("cam_error")}</b><div class="meta">${esc(VID.err)}</div></div>` : ""}
+  <div style="position:relative;border-radius:14px;overflow:hidden;background:#000">
+    <video id="cam" autoplay muted playsinline style="width:100%;display:block;aspect-ratio:9/12;object-fit:cover"></video>
+    ${recording ? `<div id="rectime" style="position:absolute;top:10px;left:10px;background:var(--danger);color:#fff;border-radius:8px;padding:3px 8px;font-weight:700">● 00:00.0</div>
+      <button id="vmark" class="secondary" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;background:rgba(255,255,255,.9);color:#121826">${T("video_mark")}</button>` : ""}
+  </div>
+  ${recording ? `<div class="hint">${T("video_mark_hint", { n: VID.live.length })}</div><button id="vstop" style="background:var(--danger)">${T("video_stop")}</button>`
+    : `<button id="vrec" ${VID.stream ? "" : "disabled"}>${T("video_record")}</button><div class="hint">${T("video_tip")}</div>`}`;
+};
+screens.racevideo.init = async () => {
+  const cam = $("#cam"); if (!cam) return;
+  if (!VID.stream && !VID.err) {
+    try { VID.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: true }); }
+    catch (er) { VID.err = er.name === "NotAllowedError" ? t("cam_denied") : (er.message || String(er)); return render(); }
+    return render();
+  }
+  if (VID.stream) cam.srcObject = VID.stream;
+  if ($("#vrec")) $("#vrec").onclick = () => {
+    const type = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    VID.chunks = []; VID.live = []; VID.rec = new MediaRecorder(VID.stream, type ? { mimeType: type } : undefined);
+    VID.rec.ondataavailable = ev => ev.data.size && VID.chunks.push(ev.data);
+    VID.rec.onstop = async () => {
+      VID.blob = new Blob(VID.chunks, { type: VID.rec.mimeType || "video/webm" }); VID.url = URL.createObjectURL(VID.blob); vidStop();
+      VID.marks = { go: VID.live[0] ?? null, laps: VID.live.slice(1), fin: null };        // rough live marks, if any
+      VID.suggestGo = await detectStartSignal(VID.blob);
+      go("racemarks");
+    };
+    VID.t0 = new Date().toISOString(); VID.started = performance.now(); VID.rec.start(500); render();
+  };
+  if ($("#vmark")) $("#vmark").onclick = () => { VID.live.push(+((performance.now() - VID.started) / 1000).toFixed(2)); if (navigator.vibrate) navigator.vibrate(30); $(".hint").textContent = t("video_mark_hint", { n: VID.live.length }); };
+  if ($("#vstop")) $("#vstop").onclick = () => VID.rec.stop();
+  if ($("#rectime")) { const tick = () => { if (!$("#rectime") || !VID.rec || VID.rec.state !== "recording") return; $("#rectime").textContent = "● " + fmtTime((performance.now() - VID.started) / 1000); requestAnimationFrame(tick); }; tick(); }
+};
+screens.racemarks = () => {
+  const e = VID.race && (S.events || []).find(z => z.id === VID.race.eid), x = e && e.races.find(z => z.id === VID.race.rid);
+  if (!x || !VID.url) { setTimeout(() => go("race")); return ""; }
+  const M = VID.marks, sm = sensorMatch(e, x, VID.t0, 0);
+  const all = [...(M.go != null ? [{ k: "go", v: M.go }] : []), ...M.laps.map((v, i) => ({ k: "lap", i, v })), ...(M.fin != null ? [{ k: "fin", v: M.fin }] : [])].sort((a, b) => a.v - b.v);
+  const tot = M.go != null && M.fin != null ? M.fin - M.go : null;
+  return `${back("race", "")}<h1>${T("marks_title", { m: x.m })}</h1><p class="sub">${T("marks_d")}</p>
+  <video id="pv" src="${VID.url}" controls playsinline style="width:100%;border-radius:14px;background:#000;max-height:46vh"></video>
+  <div class="row" style="align-items:center"><button class="secondary" id="vb">−0.1 s</button><div class="timer" id="vt" style="font-size:26px;margin:0">00:00.0</div><button class="secondary" id="vf">+0.1 s</button></div>
+  <div class="row"><button id="mgo">${T("mark_go")}</button><button class="secondary" id="mlap">${T("mark_lap")}</button><button id="mfin" style="background:var(--ink);color:var(--bg)">${T("mark_fin")}</button></div>
+  ${VID.suggestGo != null && (M.go == null || Math.abs(M.go - VID.suggestGo) > 0.3) ? `<div class="card tap" id="sgo"><b>${T("suggest_go", { t: fmtTime(VID.suggestGo) })}</b><div class="meta">${T("suggest_go_d")}</div></div>` : ""}
+  <div class="card">${sm ? `<b>${T("sensor_matched")}</b>` : `<div class="meta">${T("sensor_auto_d")}</div>`}</div>
+  <div class="card">${all.length ? all.map(m => `<div class="kv"><span>${m.k === "go" ? T("mark_go") : m.k === "fin" ? T("mark_fin") : T("lap_n", { n: m.i + 1 })}</span>
+      <span><a href="#" data-seek="${m.v}">${fmtTime(m.v)}</a> <button class="small secondary" style="width:auto;padding:2px 10px" data-del="${m.k}:${m.i ?? ""}">×</button></span></div>`).join("")
+      : `<div class="meta">${T("marks_none")}</div>`}
+    ${tot ? `<div class="kv"><span><b>${T("race_time")}</b></span><span><b>${fmtLap(tot)} s</b></span></div>` : ""}</div>
+  <div class="err" id="err"></div>
+  <button id="msave">${T("marks_save")}</button>
+  <a class="noprint" href="${VID.url}" download="race-${x.m}m-${(VID.t0 || "").slice(0, 10)}.${(VID.blob.type || "").includes("mp4") ? "mp4" : "webm"}"><button class="secondary" type="button">${T("video_save_phone")}</button></a>`;
+};
+screens.racemarks.init = () => {
+  const pv = $("#pv"); if (!pv) return;
+  const show = () => { $("#vt").textContent = fmtTime(pv.currentTime || 0); };
+  pv.ontimeupdate = show; pv.onseeked = show;
+  const step = d => { pv.pause(); pv.currentTime = Math.max(0, (pv.currentTime || 0) + d); };
+  $("#vb").onclick = () => step(-0.1); $("#vf").onclick = () => step(0.1);
+  const at = () => +(pv.currentTime || 0).toFixed(2), M = VID.marks;
+  $("#mgo").onclick = () => { M.go = at(); render(); };
+  $("#mlap").onclick = () => { M.laps.push(at()); M.laps.sort((a, b) => a - b); render(); };
+  $("#mfin").onclick = () => { M.fin = at(); render(); };
+  if ($("#sgo")) $("#sgo").onclick = () => { M.go = VID.suggestGo; render(); };
+  document.querySelectorAll("[data-seek]").forEach(a => a.onclick = ev => { ev.preventDefault(); pv.pause(); pv.currentTime = +a.dataset.seek; });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { const [k, i] = b.dataset.del.split(":");
+    if (k === "go") M.go = null; else if (k === "fin") M.fin = null; else M.laps.splice(+i, 1); render(); });
+  $("#msave").onclick = () => {
+    if (M.go == null || M.fin == null || M.fin <= M.go) return $("#err").textContent = t("marks_need");
+    const pts = [M.go, ...M.laps.filter(v => v > M.go && v < M.fin), M.fin], laps = pts.slice(1).map((v, i) => +(v - pts[i]).toFixed(2));
+    const e = (S.events || []).find(z => z.id === VID.race.eid), x = e.races.find(z => z.id === VID.race.rid);
+    x.timing = { source: "video", at: new Date(new Date(VID.t0).getTime() + M.go * 1000).toISOString(), video_start: VID.t0,
+                 marks: { go: M.go, laps: M.laps.slice(), fin: M.fin }, laps: M.laps.length ? laps : [], total: +(M.fin - M.go).toFixed(2) };
+    S.viewEvent = e.id; persist(); toast(t("timing_saved")); go("race");
+  };
+};
+
 // ---------------------------------------------------------------- export a report screen as PDF (the phone's print / Save as PDF), watermarked
 function exportReport(title, date) {
   const by = (S.account && S.account.name) || "SkateLog";
@@ -1030,9 +1136,10 @@ screens.race = () => {
   <div class="card"><b>${T("race_ready")}</b><div class="meta">${T("race_ready_d")}</div></div>
   ${e.races.map(x => { const L = (x.timing && x.timing.laps) || [];
     return `<div class="card"><b style="font-size:18px">${x.m} m</b>${x.photo_finish ? ` <span class="badge">${T("photo_finish")}</span>` : ""}
-      ${x.timing ? `<div class="meta">${T("timed_total", { t: fmtLap(x.timing.total) })}${L.length ? " · " + T("laps_n", { n: L.length }) : ""}</div>
+      ${x.timing ? `<div class="meta">${T("timed_total", { t: fmtLap(x.timing.total) })}${L.length ? " · " + T("laps_n", { n: L.length }) : ""} · <span class="badge">${T("src_" + (x.timing.source || "manual"))}</span>
+        ${x.timing.source === "video" && VID.url && VID.race && VID.race.rid === x.id ? ` · <a href="#" data-remark="${x.id}">${T("marks_edit")}</a>` : ""}</div>
         ${L.length ? `<div class="chips" style="flex-wrap:wrap">${L.map(v => `<span class="chip">${fmtLap(v)}</span>`).join("")}</div>` : ""}`
-        : `<button class="secondary" data-time="${x.id}">${T("time_this_race")}</button>`}
+        : `<button data-video="${x.id}">${T("video_record_race")}</button><button class="secondary" data-time="${x.id}">${T("time_manually")}</button>`}
       <div class="row"><div class="narrow"><label for="p${x.id}">${T("race_position")}</label><input id="p${x.id}" data-f="position" data-r="${x.id}" type="number" inputmode="numeric" min="1" value="${x.position || ""}"></div>
         <div><label for="o${x.id}">${T("race_official")}</label><input id="o${x.id}" data-f="official_s" data-r="${x.id}" type="number" inputmode="decimal" step="0.01" value="${x.official_s || ""}" placeholder="${x.timing ? fmtLap(x.timing.total) : ""}"></div></div>
       <label style="font-weight:500;display:flex;gap:8px;align-items:center"><input type="checkbox" style="width:auto" data-f="photo_finish" data-r="${x.id}" ${x.photo_finish ? "checked" : ""}>${T("photo_finish_q")}</label>
@@ -1049,6 +1156,8 @@ screens.race.init = () => {
   document.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
     const x = e.races.find(z => z.id === inp.dataset.r), f = inp.dataset.f;
     x[f] = f === "photo_finish" ? inp.checked : f === "note" ? inp.value.trim() : (+inp.value || null); persist(); if (f === "photo_finish") render(); });
+  document.querySelectorAll("[data-video]").forEach(b => b.onclick = () => { vidReset({ eid: e.id, rid: b.dataset.video }); go("racevideo"); });
+  document.querySelectorAll("[data-remark]").forEach(a => a.onclick = ev => { ev.preventDefault(); go("racemarks"); });
   document.querySelectorAll("[data-time]").forEach(b => b.onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0, race: { eid: e.id, rid: b.dataset.time } }); go("stopwatch"); });
   $("#eact").onchange = ev => { e.actual = ev.target.value || null; persist(); };
   $("#ewx").onclick = ev => { const b = ev.target.closest(".chip"); if (!b) return; e.weather = e.weather === b.dataset.w ? null : b.dataset.w; persist(); render(); };
@@ -1058,7 +1167,7 @@ screens.race.init = () => {
 };
 function saveRaceTiming() {                          // stopwatch in race mode: Go at the gun, a tap per lap, Stop at the line
   const e = (S.events || []).find(z => z.id === SW.race.eid), x = e && e.races.find(z => z.id === SW.race.rid);
-  if (x) x.timing = { at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2) };
+  if (x) x.timing = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2) };
   S.viewEvent = SW.race.eid; Object.assign(SW, { running: false, laps: [], stopped: 0, race: null }); persist(); toast(t("timing_saved")); go("race");
 }
 
@@ -1390,6 +1499,7 @@ function render() {
   if (!screens[r]) r = nextRoute();
   const nr = nextRoute();
   if (!S.loggedIn) { if (!OPEN.includes(r)) r = "welcome"; }
+  if (r !== "racevideo" && typeof VID !== "undefined" && VID.stream && !(VID.rec && VID.rec.state === "recording")) vidStop();   // camera off when leaving
   else if (OPEN.includes(r)) r = nr;
   else if (nr !== "home") {                                                       // finish onboarding first (going back is fine)
     const ORDER = ["role", "profile", "consent", "skater"];
