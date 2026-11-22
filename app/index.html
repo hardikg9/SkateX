@@ -115,6 +115,21 @@
   .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; }
   .chip { flex: 0 0 auto; width: auto; margin: 0; padding: 8px 12px; font-size: 13.5px; border-radius: 99px; background: var(--soft); color: var(--ink); font-weight: 600; }
   .chip.on { background: var(--accent); color: var(--accent-ink); }
+  #print { display: none; }
+  @media print {
+    @page { size: A4; margin: 14mm 12mm 16mm; }
+    body > *:not(#print) { display: none !important; }
+    body { background: #fff; color: #121826; }
+    #print { display: block; position: relative; font-size: 13px; }
+    #print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #print button, #print details, #print .topbar, #print input, #print select, #print textarea, #print .noprint { display: none !important; }
+    #print .card, #print .stat { break-inside: avoid; box-shadow: none; }
+    #print .phead { display: flex; justify-content: space-between; border-bottom: 1px solid #ccd; padding-bottom: 6px; margin-bottom: 10px; font-size: 11px; color: #5d6679; }
+    #print .wm { position: fixed; top: 46%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); text-align: center; white-space: nowrap;
+                 color: rgba(110, 110, 130, .17); font-weight: 800; font-size: 72px; letter-spacing: .04em; z-index: 9; pointer-events: none; }
+    #print .wm small { display: block; font-size: 17px; letter-spacing: 0; font-weight: 700; }
+    #print .pfoot { position: fixed; bottom: -10mm; left: 0; right: 0; text-align: center; font-size: 9.5px; color: #5d6679; }
+  }
   details summary { cursor: pointer; }
 </style>
 </head>
@@ -124,10 +139,11 @@
 <nav id="tabs" hidden></nav>
 <div id="menu"><div class="sheet" id="sheet"></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="print" aria-hidden="true"></div>
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.5.1";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -757,6 +773,7 @@ screens.session = () => {
       ${L.length ? `<div class="chips" style="flex-wrap:wrap">${L.map((v, j) => `<span class="chip" style="${!lapOk(x, v) ? "text-decoration:line-through;opacity:.6" : j === bi ? "background:var(--accent);color:#fff" : ""}">${fmtLap(v)}</span>`).join("")}</div>` : ""}
       <div class="row"><button class="small secondary" data-fault="${i.id}">${T(i.faulty ? "put_back" : "leave_out")}</button><button class="small danger" data-del="${i.id}">${T("delete")}</button></div></div>`; }).join("") || `<div class="card meta">${T("no_timings")}</div>`}
   ${x.source === "stopwatch" ? `<button onclick="go('stopwatch')">${T("time_another")}</button>` : ""}
+  <button class="secondary" id="sexport">${T("export_report")}</button>
   <details class="card"><summary><b>${T("fix_session")}</b></summary>
     <label for="er">${T("rink")}</label>${rinkSelect("er", x.rink_id)}
     <label for="es">${T("skate_setup")}</label>${setupSelect("es", k, x.setup_id)}
@@ -772,6 +789,7 @@ screens.session.init = () => {
   wireSetup("es");
   $("#er").onchange = e => { if (e.target.value === "+") { S.after = "session"; go("rinkadd"); } };
   $("#esave").onclick = () => { const id = readSetup("es", k); if (id) x.setup_id = id; x.rink_id = $("#er").value; persist(); toast(t("saved")); render(); };
+  $("#sexport").onclick = () => exportReport(t("session_report_title", { name: k ? k.display_name : "", rink: (rinkOf(x) || {}).name || "" }), x.date);
   $("#edel").onclick = () => { if (!confirm(t("delete_session_q"))) return; S.sessions = S.sessions.filter(z => z.id !== x.id); persist(); go("home"); };
 };
 
@@ -913,6 +931,17 @@ function loadDemo() {
       { id: uid(), m: 1000, position: 4, official_s: null, photo_finish: true, note: "Phone battery died after lap 4; laps 4-5 estimated", timing: { at: y.toISOString(), laps: [31.8, 28.5, 24.4, 23.7, 23.3], total: 131.7 },
         sensor: { start_s: 1.0, start_practice_s: 0.3, rate: 117, rate_practice: 116, push: 0.90, push_practice: 1.06, push_late: 0.95, turns: 63, turns_practice: 56 } }] });
   persist(); go("home"); render();
+}
+
+// ---------------------------------------------------------------- export a report screen as PDF (the phone's print / Save as PDF), watermarked
+function exportReport(title, date) {
+  const by = (S.account && S.account.name) || "SkateLog";
+  const d = esc(dfmt(new Date(date), { day: "numeric", month: "short", year: "numeric" }));
+  const line = esc(t("export_wm", { by: esc(by), date: d }));
+  $("#print").innerHTML = `<div class="phead"><span>SkateLog · ${esc(title)}</span><span>${d}</span></div>${$("#app").innerHTML}
+    <div class="wm">${T("export_conf")}<small>${line}</small></div><div class="pfoot">${T("export_conf_short")} · ${line}</div>`;
+  const old = document.title; document.title = `${title} - ${d}`;
+  setTimeout(() => { window.print(); document.title = old; }, 50);
 }
 
 // ================================================================ Race mode: a race event (meet) with one race per format, parent inputs, race report
@@ -1082,10 +1111,12 @@ screens.racereport = () => {
   ${notes.length ? `<h2>${T("race_learnings")}</h2><div class="card">${notes.map(n => `<div class="kv"><span style="color:var(--ink)">${esc(n)}</span></div>`).join("")}</div>` : ""}
   <h2>${T("work_on")}</h2><div class="card">${tips.length ? tips.map((x, i) => `<div class="kv"><span style="color:var(--ink)"><b>${i + 1}.</b> ${esc(x)}</span></div>`).join("") : `<div class="meta">${T("work_on_none")}</div>`}
     <div class="hint">${T("ai_note")}</div></div>
-  <button id="rshare">${T("share_report")}</button>`;
+  <div class="row"><button class="secondary" id="rexport">${T("export_report")}</button><button id="rshare">${T("share_report")}</button></div>`;
 };
 screens.racereport.init = () => {
   const e = (S.events || []).find(z => z.id === S.viewEvent); if (!e || !$("#rshare")) return;
+  $("#rexport").onclick = () => { const k = S.skaters.find(z => z.id === e.skater_id), r = S.rinks.find(z => z.id === e.rink_id);
+    exportReport(t("race_report_title", { name: k ? k.display_name : "", ev: e.name || t("race_event"), rink: r ? r.name : "" }), e.date + "T12:00"); };
   $("#rshare").onclick = () => {
     const r = S.rinks.find(z => z.id === e.rink_id), k = S.skaters.find(z => z.id === e.skater_id);
     const lines = [`${e.name || t("race_event")} · ${r ? r.name : ""} · ${e.date}`, ...e.races.map(x => `${x.m} m: ${ord(x.position)}${raceTime(x) ? ", " + fmtLap(raceTime(x)) + " s" : ""}${x.photo_finish ? " (" + t("photo_finish") + ")" : ""}`),
