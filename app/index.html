@@ -906,10 +906,10 @@ function loadDemo() {
   const fst = { id: uid(), wheels: "Conquer", bearings: "Minimizer", added: now.toISOString() }; prav.setups.push(fst);
   const y = new Date(now); y.setDate(now.getDate() - 1);
   S.events.push({ id: uid(), skater_id: prav.id, name: "FST", rink_id: "bh", date: dayKey(y), scheduled: "09:00", actual: "12:00", weather: "w_hot", setup_id: fst.id,
-    notes: "First race had poor start reaction compared to others; one false start by another skater\nSecond race: leading until the 3rd lap, then overtaken and did not defend well\nSecond race: no split finish, lost 3rd place in a photo finish",
+    notes: "First race: poor start reaction compared to others; one false start by another skater\nSecond race: leading until the 3rd lap, then overtaken and did not defend well\nSecond race: no split finish, lost 3rd place in a photo finish",
     created: now.toISOString(), races: [
-      { id: uid(), m: 500, position: 4, official_s: null, photo_finish: false, note: "", timing: { at: y.toISOString(), laps: [], total: 67.1 },
-        sensor: { start_s: 2.0, start_practice_s: 0.3, rate: 131, rate_practice: 129, push: 1.20, push_practice: 1.20, push_late: 0.98, turns: 51, turns_practice: 42 } },
+      { id: uid(), m: 500, position: 4, official_s: null, photo_finish: false, note: "", timing: { at: y.toISOString(), laps: [], total: 65.1 },
+        sensor: { start_s: 0.0, start_practice_s: 0.3, rate: 131, rate_practice: 129, push: 1.20, push_practice: 1.20, push_late: 0.98, turns: 51, turns_practice: 42 } },
       { id: uid(), m: 1000, position: 4, official_s: null, photo_finish: true, note: "Phone battery died after lap 4; laps 4-5 estimated", timing: { at: y.toISOString(), laps: [31.8, 28.5, 24.4, 23.7, 23.3], total: 131.7 },
         sensor: { start_s: 1.0, start_practice_s: 0.3, rate: 117, rate_practice: 116, push: 0.90, push_practice: 1.06, push_late: 0.95, turns: 63, turns_practice: 56 } }] });
   persist(); go("home"); render();
