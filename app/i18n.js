@@ -740,3 +740,15 @@ Object.assign(SL_I18N.en, {                          // v0.10: session score, we
   races_word: "races", best_place: "best place", meet_many_races: "A meet can have many races over one or more days. Add each race when it happens.",
   next_up: "Next up", tomorrow: "Tomorrow", in_days: "In {n} days", recent_sessions: "Recent sessions"
 });
+Object.assign(SL_I18N.en, {                          // v0.11
+  no_pb_week: "No PBs yet this week. Keep pushing.", seconds: "seconds", best_lap_week: "Best lap this week", best_lap_short: "best lap",
+  best_lap_rinks: "Rinks differ in length and surface, so compare laps at the same rink.",
+  trends: "Trends", best_lap_at: "Best lap at {rink}", sc_attack: "Attack",
+  adv_attack: "Push harder in your main set: aim for more laps within a few tenths of your best.",
+  week_of_d: "Week of {d}", note_at: "Note at", save_note: "Save note",
+  nq_start: "Good start", nq_cross: "Crossovers", nq_fall: "Fell", nq_coach: "Coach tip", nq_tired: "Felt tired", nq_fast: "Felt fast",
+  lc_all: "All", lc_quad: "Quad", lc_inline: "Inline", lc_fitness: "Fitness", lc_race: "Race videos", lc_nutrition: "Nutrition", lc_meets: "Upcoming meets", lc_general: "General",
+  kind_video: "Video", kind_article: "Article", mins_n: "{n} min", nothing_here: "Nothing here yet.",
+  learn_sample: "Sample library for the prototype: titles and summaries stand in for real videos and articles.",
+  video_soon: "Video coming soon", article_soon: "Article coming soon", related: "Related"
+});

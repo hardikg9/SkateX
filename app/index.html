@@ -191,6 +191,34 @@
   .bars .tr { height: 8px; border-radius: 4px; background: var(--midnight); overflow: hidden; } .bars .tr i { display: block; height: 100%; border-radius: 4px; }
   .bigscore { display: flex; gap: 16px; align-items: center; }
   .bigscore .score { flex-basis: 84px; height: 84px; border-radius: 22px; } .bigscore .score b { font-size: 44px; }
+  button.wkchip { width: auto; margin: 0; outline: 0; text-transform: none; letter-spacing: 0; color: var(--ink); cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 6px 12px; }
+  button.wkchip::after { content: " ▾"; color: var(--muted); } button.wkchip.on { background: var(--surface); border-color: var(--cyan); } button.wkchip.on::after { content: " ▴"; }
+  .wkpanel { margin: -2px 0 14px; }
+  .wkchip.top b { color: var(--lime); } .wkchip.good b { color: var(--cyan); }
+  .trend { padding: 12px 14px 8px; } .trend .th { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--muted); }
+  .trend .th span:first-child { flex: 1; } .trend .th b { font-family: var(--display); font-size: 24px; } .trend svg { width: 100%; height: 56px; display: block; margin-top: 4px; }
+  .dl.up { color: var(--lime); } .dl.dn { color: var(--signal); } .dl { font-size: 12px; }
+  svg.mini { flex: 0 0 72px; height: 40px; }
+  .wkgroup { background: var(--midnight); border: 1px solid var(--line); border-radius: 20px; padding: 12px 10px 4px; margin: 10px 0 14px; }
+  .wkgroup .wkhead { padding: 0 4px 4px; gap: 8px; flex-wrap: wrap; } .wkgroup .wkhead > span { display: flex; gap: 6px; align-items: center; }
+  .wkgroup .card { margin: 8px 0; }
+  .notecard { background: var(--section); color: #F2F2F7; border: 1.5px solid var(--lime); border-radius: 18px; padding: 14px; margin: 12px 0; }
+  .notecard .k { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--lime); }
+  .notecard .k b { font-family: var(--display); font-size: 20px; letter-spacing: 0; margin-left: 4px; color: #F2F2F7; }
+  .notecard input { margin-top: 4px; } body.gz main .notecard .row button { margin-top: 12px; }
+  .ts { font-family: var(--display); font-size: 17px; color: var(--cyan); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  details.tli summary { list-style: none; cursor: pointer; } details.tli summary::-webkit-details-marker { display: none; }
+  details.tli summary::after { content: " ▾"; color: var(--muted); } details.tli[open] summary::after { content: " ▴"; }
+  .chip.on { background: var(--accent); color: #fff; }
+  .lcard { display: flex; gap: 14px; align-items: flex-start; } .lcard.raced { padding-right: 24%; }
+  .thumb { flex: 0 0 74px; height: 74px; border-radius: 16px; display: grid; place-content: center; text-align: center; background: var(--surface); color: #F2F2F7; position: relative; overflow: hidden; isolation: isolate; }
+  .thumb svg { width: 30px; height: 30px; } .thumb.video { background: var(--rink); } .thumb.article { background: var(--surface); color: var(--cyan); }
+  .thumb.striped::after { right: -18px; width: 50px; transform: skewX(-14deg) scale(.6); }
+  .thumb.ev { background: var(--section); border: 1.5px solid var(--cyan); } .thumb.ev b { font-family: var(--display); font-size: 28px; line-height: 1; } .thumb.ev span { font-size: 11px; text-transform: uppercase; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--surface); color: #E3E8F2; } .tag.c { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); }
+  .player { height: 200px; border-radius: 20px; background: var(--section); display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--muted); margin: 8px 0 14px; border: 1px solid var(--line); }
+  .player svg { width: 56px; height: 56px; color: #fff; background: var(--rink); border-radius: 50%; padding: 12px; outline: 1.5px solid var(--cyan); outline-offset: 3px; }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -232,7 +260,6 @@
 </style>
 </head>
 <body>
-<div id="proto"></div>
 <main id="app"></main>
 <nav id="tabs" hidden></nav>
 <div id="menu"><div class="sheet" id="sheet"></div></div>
@@ -241,7 +268,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.10";
+const APP_VERSION = "0.11";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -335,7 +362,7 @@ function rinkStats(k, rinkId, metric, exceptId) {
   const vals = sessionsFor(k).filter(x => x.rink_id === rinkId && counts(x) && x.id !== exceptId).map(METRICS[metric]).filter(v => v !== null);
   return vals.length ? { n: vals.length, best: Math.min(...vals), avg: vals.reduce((a, b) => a + b, 0) / vals.length } : null;
 }
-// Session score 0-100: speed against your own best at the rink (40), steadiness of laps (25), amount of work (20), progress on your rink average (15)
+// Session score 0-100: speed against your own best at the rink (30), attack / aggression (20), steady laps (20), amount of work (15), progress on your rink average (15)
 function sessionScore(s) {
   if (!counts(s)) return null;
   const L = lapsAll(s); if (L.length < 3) return null;
@@ -344,8 +371,10 @@ function sessionScore(s) {
   const pb = prev.length ? Math.min(b, ...prev) : b, avg = prev.length ? prev.reduce((a, c) => a + c, 0) / prev.length : b;
   const core = [...L].sort((a, c) => a - c).slice(0, Math.max(3, Math.ceil(L.length * .8)));     // slowest fifth left out: warm-up, traffic
   const m = core.reduce((a, c) => a + c, 0) / core.length, cv = Math.sqrt(core.reduce((a, c) => a + (c - m) ** 2, 0) / core.length) / m;
-  const parts = { speed: cl(1 - (b - pb) / (.06 * pb)), steady: cl(1 - (cv - .015) / .05), volume: cl(L.length / 15), progress: prev.length ? cl(.5 + (avg - b) / (.04 * avg)) : .5 };
-  return { total: Math.round(40 * parts.speed + 25 * parts.steady + 20 * parts.volume + 15 * parts.progress), parts };
+  const sx = s.sensor_stats, hot = L.filter(v => v <= pb * 1.04).length / L.length;   // attack: share of laps at race pace (stroke rate from a sensor when there is one)
+  const parts = { speed: cl(1 - (b - pb) / (.06 * pb)), attack: sx && sx.rate && sx.rate_ref ? cl(.5 + (sx.rate - sx.rate_ref) / (.2 * sx.rate_ref)) : cl(hot / .4),
+                  steady: cl(1 - (cv - .015) / .05), volume: cl(L.length / 15), progress: prev.length ? cl(.5 + (avg - b) / (.04 * avg)) : .5 };
+  return { total: Math.round(30 * parts.speed + 20 * parts.attack + 20 * parts.steady + 15 * parts.volume + 15 * parts.progress), parts };
 }
 const scoreOf = s => { const x = sessionScore(s); return x ? x.total : null; };
 const band = v => v == null ? "" : v >= 80 ? "top" : v >= 65 ? "good" : v >= 50 ? "ok" : "low";
@@ -607,7 +636,14 @@ screens.home = () => {
   const wsc = week.map(scoreOf).filter(v => v != null), avgSc = wsc.length ? Math.round(wsc.reduce((a, c) => a + c, 0) / wsc.length) : null;
   const pbs = week.filter(isPB).length;
   const cheer = !week.length ? T("cheer_start") : avgSc != null && avgSc >= 75 ? T("cheer_great") : week.length >= 3 ? T("cheer_busy") : T("cheer_good");
-  const open = !!S.homeSessOpen, listS = (daySessions.length ? daySessions : week).sort((a, b) => b.date.localeCompare(a.date));
+  const open = S.homeOpen || null, wk = [...week].sort((a, b) => b.date.localeCompare(a.date)), pbS = wk.filter(isPB);
+  const bestS = best ? wk.find(x => bestLapOf(x) === best) : null, bestR = bestS && rinkOf(bestS);
+  const panel = open === "sess" ? (wk.map(sessionCard).join("") || `<div class="card meta">${T("no_data_yet")}</div>`)
+    : open === "pb" ? (pbS.map(sessionCard).join("") || `<div class="card meta">${T("no_pb_week")}</div>`)
+    : open === "best" && bestS ? `<div class="card"><div class="bigscore"><div class="score top" style="flex-basis:96px"><b style="font-size:34px">${fmtLap(best)}</b><span>${T("seconds")}</span></div>
+        <div><b>${T("best_lap_week")}</b><div class="meta">${esc(bestR ? bestR.name : "")} · ${esc(dfmt(new Date(bestS.date), { weekday: "short", day: "numeric", month: "short" }))}</div></div></div>
+        <div class="bars">${wk.filter(bestLapOf).map(x => { const v = bestLapOf(x), w2 = Math.round(best / v * 100); return `<div class="br"><span>${esc(dfmt(new Date(x.date), { weekday: "short", day: "numeric" }))} · ${esc((rinkOf(x) || {}).short || "")}</span><span class="tr"><i style="width:${w2}%;background:${v === best ? "var(--lime)" : "var(--cyan)"}"></i></span><b>${fmtLap(v)}</b></div>`; }).join("")}</div>
+        <div class="hint">${T("best_lap_rinks")}</div></div>` : "";
   return `${shellTop()}
   ${coach && !k ? `<h1>${T("squad")}</h1><p class="sub">${T("squad_summary", { n: S.skaters.length, s: week.length })}</p>` : `<h1>${esc(title)}</h1>`}
   ${ann.map(a => `<div class="card"><span class="badge">${T("announcements")}</span><div style="margin-top:6px">${esc(a.text)}</div><div class="hint">${esc(dfmt(new Date(a.at), { dateStyle: "medium" }))}</div></div>`).join("")}
@@ -616,38 +652,54 @@ screens.home = () => {
     return `<div class="day ${kk === dayKey(now) ? "today" : ""} ${kk === sel ? "sel" : ""}" data-d="${kk}"><div class="d">${esc(dfmt(d, { weekday: "short" }))}</div><div class="n">${d.getDate()}</div>
       <div class="dots">${sc.length ? `<span class="dot ${band(best.length ? Math.max(...best) : null)}"></span>` : ""}${pl ? '<span class="dot plan"></span>' : ""}</div></div>`; }).join("")}</div>
   ${k ? `<div class="wkline"><div class="cheer">${cheer}</div>
-    <span class="wkchip"><b>${week.length}</b>${T("sessions_n", { n: "" }).trim()}</span>
-    ${avgSc != null ? `<span class="wkchip"><b>${avgSc}</b>${T("avg_score")}</span>` : ""}
-    ${pbs ? `<span class="wkchip"><span class="pb">PB</span> <b>${pbs}</b>${T("pbs_week")}</span>` : ""}</div>
+    <button class="wkchip ${open === "sess" ? "on" : ""}" data-wk="sess"><b>${week.length}</b>${T("sessions_n", { n: "" }).trim()}${avgSc != null ? ` · ${T("avg_score")} ${avgSc}` : ""}</button>
+    <button class="wkchip ${open === "pb" ? "on" : ""}" data-wk="pb"><span class="pb">PB</span> <b>${pbs}</b>${T("pbs_week")}</button>
+    <button class="wkchip ${open === "best" ? "on" : ""}" data-wk="best"><b>${best ? fmtLap(best) : "–"}</b>${T("best_lap_short")}</button></div>
+  ${open ? `<div class="wkpanel">${panel}</div>` : ""}
   <div class="advice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
     <div><div class="k">${T("focus_week")}</div>${T(adviceKey(week))}</div></div>` : ""}
   ${dayPlans.map(planCard).join("")}
   ${k ? raceHomeCard(k) : ""}
-  <h2>${T("this_week")}</h2>
-  <div class="stats">
-    <div class="stat tap ${open ? "open" : ""}" id="sesstog"><div class="v">${week.length}</div><div class="l">${T("sessions_n", { n: "" }).trim()}</div></div>
-    <div class="stat"><div class="v">${laps}</div><div class="l">${T("laps_n", { n: "" }).trim()}</div></div>
-    <div class="stat"><div class="v">${best ? fmtLap(best) : "–"}</div><div class="l">${T("best_lap")}${best ? " (s)" : ""}</div></div>
-  </div>
-  ${open ? `<div>${listS.map(sessionCard).join("") || `<div class="card meta">${T("no_data_yet")}</div>`}</div>` : ""}
   ${k ? betterCard(k, ss) : ""}
-  ${ss.length ? `<h2>${T("trend_title")}</h2><div class="card">${spark(ss)}</div>` : `<div class="card meta">${T("no_data_yet")}</div>`}
+  ${ss.length ? `<h2>${T("trends")}</h2>${trends(ss)}` : `<div class="card meta">${T("no_data_yet")}</div>`}
   <h2>${T("ai_summary")}</h2>
   <div class="card">${esc(summaryText(k, ss, week))}<div class="hint">${T("ai_note")}</div></div>${aiBtn}
   ${k ? `<h2>${T("more")}</h2><div class="card">
     <div class="kv tap" onclick="go('rinks')"><span>${T("my_rinks")}</span><span>${S.rinks.length} ›</span></div>
     <div class="kv tap" onclick="go('setups')"><span>${T("skate_setups")}</span><span>${(k.setups || []).length} ›</span></div></div>` : ""}`;
 };
+function trends(ss) {                                // the three numbers worth watching: session score, best lap at the main rink, attack
+  const C = ss.filter(counts).sort((a, b) => a.date.localeCompare(b.date));
+  const cnt = {}; C.forEach(x => cnt[x.rink_id] = (cnt[x.rink_id] || 0) + 1);
+  const main = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], mr = S.rinks.find(z => z.id === main);
+  const sc = C.map(x => [x, sessionScore(x)]).filter(z => z[1]).slice(-12);
+  const lines = [
+    [T("session_score"), sc.map(z => z[1].total), "var(--lime)", false, v => v],
+    [T("best_lap_at", { rink: esc(mr ? mr.short : "") }), C.filter(x => x.rink_id === main).map(bestLapOf).filter(Boolean).slice(-12), "var(--cyan)", true, v => fmtLap(v) + " s"],
+    [T("sc_attack"), sc.map(z => Math.round(z[1].parts.attack * 100)), "var(--signal)", false, v => v + "%"]];
+  return lines.map(([title, v, col, lowGood, f]) => {
+    if (v.length < 2) return "";
+    const lo = Math.min(...v), hi = Math.max(...v), W = 300, H = 56, pd = 6, d = v.at(-1) - v.at(-2), up = lowGood ? d < 0 : d > 0;
+    const xy = v.map((y, i) => [pd + i * (W - 2 * pd) / (v.length - 1), hi === lo ? H / 2 : lowGood ? pd + (y - lo) / (hi - lo) * (H - 2 * pd) : H - pd - (y - lo) / (hi - lo) * (H - 2 * pd)]);
+    return `<div class="card trend"><div class="th"><span>${title}</span><b style="color:${col}">${f(v.at(-1))}</b><span class="dl ${d === 0 ? "" : up ? "up" : "dn"}">${d === 0 ? "=" : up ? "▲" : "▼"}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" points="${xy.map(p => p.join(",")).join(" ")}"/>${xy.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === xy.length - 1 ? 4.5 : 2.5}" fill="${col}"/>`).join("")}</svg></div>`; }).join("");
+}
+function lapBars(s) {                                // mini chart of the session's laps, best lap in lime
+  const Lp = lapsAll(s).slice(0, 18); if (Lp.length < 2) return "";
+  const lo = Math.min(...Lp), hi = Math.max(...Lp), W = 72, H = 40, bw = W / Lp.length;
+  return `<svg class="mini" viewBox="0 0 ${W} ${H}" aria-hidden="true">${Lp.map((v, i) => { const h = 10 + (hi === lo ? 1 : (hi - v) / (hi - lo)) * (H - 10);
+    return `<rect x="${i * bw + 1}" y="${H - h}" width="${Math.max(1.5, bw - 2)}" height="${h}" rx="1.5" fill="${v === lo ? "#D4F53C" : "#5CE1FF"}" opacity="${v === lo ? 1 : .75}"/>`; }).join("")}</svg>`;
+}
 function adviceKey(week) {                             // the weakest part of this week's scores decides the focus
   const P = week.map(sessionScore).filter(Boolean); if (!P.length) return "adv_crossover";
   const avg = key => P.reduce((a, x) => a + x.parts[key], 0) / P.length;
-  const w = [["speed", avg("speed")], ["steady", avg("steady")], ["volume", avg("volume")], ["progress", avg("progress")]].sort((a, b) => a[1] - b[1])[0][0];
-  return { speed: "adv_crossover", steady: "adv_steady", volume: "adv_volume", progress: "adv_rest" }[w];
+  const w = ["speed", "attack", "steady", "volume", "progress"].map(x => [x, avg(x)]).sort((a, b) => a[1] - b[1])[0][0];
+  return { speed: "adv_crossover", attack: "adv_attack", steady: "adv_steady", volume: "adv_volume", progress: "adv_rest" }[w];
 }
 screens.home.init = () => {
   wireWho();
   document.querySelectorAll(".day").forEach(d => d.onclick = () => { S.selDay = d.dataset.d; persist(); render(); });
-  if ($("#sesstog")) $("#sesstog").onclick = () => { S.homeSessOpen = !S.homeSessOpen; persist(); render(); };
+  document.querySelectorAll("[data-wk]").forEach(b => b.onclick = () => { S.homeOpen = S.homeOpen === b.dataset.wk ? null : b.dataset.wk; persist(); render(); });
   wireSessions(); wireEvents();
   const sel = document.querySelector(".day.sel"); if (sel) sel.scrollIntoView({ inline: "center", block: "nearest" });
 };
@@ -658,7 +710,7 @@ function sessionCard(s) {
     <b>${esc(r ? r.name : t("rink_unknown"))}</b> ${isPB(s) ? '<span class="pb">PB</span>' : ""} ${role() === "coach" && k ? "· " + esc(k.display_name) : ""}
     ${s.source === "manual" ? `<span class="badge unv">${T("not_counted")}</span>` : ""}
     <div class="meta">${esc(dfmt(new Date(s.date), { weekday: "short", day: "numeric", month: "short" }))} · ${esc(times)}</div>
-    <div class="meta">${[nl ? T(nl === 1 ? "lap_1" : "laps_n", { n: nl }) : "", b ? T("best_lap") + " " + fmtLap(b) + " s" : "", su ? esc(setupLabel(su)) : ""].filter(Boolean).join(" · ")}</div></div></div>`;
+    <div class="meta">${[nl ? T(nl === 1 ? "lap_1" : "laps_n", { n: nl }) : "", b ? T("best_lap") + " " + fmtLap(b) + " s" : "", su ? esc(setupLabel(su)) : ""].filter(Boolean).join(" · ")}</div></div>${lapBars(s)}</div>`;
 }
 function wireSessions() { document.querySelectorAll("[data-sess]").forEach(c => c.onclick = () => { S.viewSession = c.dataset.sess; persist(); go("session"); }); }
 function betterCard(k, ss) {                          // you vs you: latest counted session against the average before it, same rink
@@ -702,6 +754,7 @@ function summaryText(k, ss, week) {
 }
 
 const SW = { running: false, t0: 0, laps: [], last: 0, timer: null, start: null, stopped: 0 };
+const mmss = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(x).padStart(2, "0"); };
 function fmtTime(s) { const m = Math.floor(s / 60), r = s - m * 60; return `${String(m).padStart(2, "0")}:${r.toFixed(1).padStart(4, "0")}`; }
 screens.stopwatch = () => {
   const k = currentSkater();
@@ -883,7 +936,7 @@ screens.session = () => {
   <p class="sub">${esc(k ? k.display_name : "")} · ${esc(dfmt(new Date(x.date), { weekday: "long", day: "numeric", month: "short" }))} · ${esc(x.source === "manual" ? tod(x.date) : tod(x.date) + "–" + tod(x.end))}<br>
     ${esc(su ? setupLabel(su) : t("setup_unknown"))} · ${T(x.source === "stopwatch" ? "stopwatch_src" : x.source === "sensor" ? "sensor_src" : "manual_src")}
     ${x.source === "sensor" ? "" : `<span class="badge unv">${T(x.source === "manual" ? "not_counted" : "hand_timed")}</span>`}</p>
-  ${(() => { const sc = sessionScore(x); if (!sc) return ""; const P = [["speed", "sc_speed", "var(--rink)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "var(--signal)"]];
+  ${(() => { const sc = sessionScore(x); if (!sc) return ""; const P = [["speed", "sc_speed", "var(--rink)"], ["attack", "sc_attack", "var(--signal)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "#93A0B8"]];
     return `<div class="card"><div class="bigscore">${scoreBox(sc.total)}<div><div style="font-family:var(--display);font-style:italic;font-weight:800;text-transform:uppercase;font-size:24px;line-height:1">${T("session_score")}</div>
       ${isPB(x) ? `<div style="margin-top:6px"><span class="pb">PB</span> ${T("pb_line", { v: fmtLap(b) })}</div>` : `<div class="meta">${T("score_how")}</div>`}</div></div>
       <div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${Math.round(sc.parts[k2] * 100)}%;background:${c}"></i></span><b>${Math.round(sc.parts[k2] * 100)}</b></div>`).join("")}</div></div>`; })()}
@@ -1350,9 +1403,12 @@ screens.live = () => {
   const L = S.live; if (!L) { setTimeout(() => go("practice")); return ""; }
   const k = S.skaters.find(z => z.id === L.skater_id), r = S.rinks.find(z => z.id === L.rink_id);
   S.sensorBack = "live";
-  const tl = [...L.items.map(i => ({ at: i.at, html: `<span class="badge">${T(i.kind === "race" ? "kind_race" : "kind_laps")}</span> ${i.total ? fmtLap(i.total) + " s" : ""}${(i.laps || []).length ? " · " + T("laps_n", { n: i.laps.length }) + " · " + T("best_lap") + " " + fmtLap(Math.min(...i.laps)) + " s" : ""}${i.source === "video" ? " · " + T("src_video") : ""}` })),
-              ...L.notes.map(n => ({ at: n.at, html: `<b>${T("act_note")}:</b> ${esc(n.text)}` })),
-              ...L.changes.map(c => ({ at: c.at, html: c.setup_id ? T("changed_setup", { s: esc(setupLabel(setupOf(k, c.setup_id)) || "") }) : T("changed_sensor", { s: esc(sensorText(c.sensor)) }) }))]
+  const st = at => mmss(Math.max(0, (new Date(at) - new Date(L.start)) / 1000));
+  const tl = [...L.items.map(i => { const Lp = i.laps || [], bi = Lp.length ? Lp.indexOf(Math.min(...Lp)) : -1;
+                const head = `<span class="badge">${T(i.kind === "race" ? "kind_race" : "kind_laps")}</span> ${i.total ? fmtLap(i.total) + " s" : ""}${Lp.length ? " · " + T("laps_n", { n: Lp.length }) + " · " + T("best_lap") + " " + fmtLap(Lp[bi]) + " s" : ""}${i.source === "video" ? " · " + T("src_video") : ""}`;
+                return { at: i.at, ts: st(i.at), html: Lp.length ? `<details class="tli"><summary>${head}</summary><div class="chips" style="flex-wrap:wrap;padding-top:8px">${Lp.map((v, j) => `<span class="chip ${j === bi ? "on" : ""}">${j + 1}: ${fmtLap(v)}</span>`).join("")}</div></details>` : head }; }),
+              ...L.notes.map(n => ({ at: n.at, ts: n.t_s != null ? mmss(n.t_s) : st(n.at), html: `<b>${T("act_note")}:</b> ${esc(n.text)}` })),
+              ...L.changes.map(c => ({ at: c.at, ts: st(c.at), html: c.setup_id ? T("changed_setup", { s: esc(setupLabel(setupOf(k, c.setup_id)) || "") }) : T("changed_sensor", { s: esc(sensorText(c.sensor)) }) }))]
               .sort((a, b) => b.at.localeCompare(a.at));
   return `${back("skate", "")}<p class="gz-hi">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
   <div class="gz-timer ${L.paused ? "paused" : ""}"><div class="ring"><div class="lbl">${L.paused ? T("paused") : "● " + T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
@@ -1360,9 +1416,11 @@ screens.live = () => {
   <div class="gz-tiles"><button class="gz-tile v raced" id="lvid">${LANES}${GZI.cam}<span>${T("act_practice_race")}</span></button>
     <button class="gz-tile l" id="llap">${GZI.watch}<span>${T("act_time_laps")}</span></button>
     <button class="gz-tile n" id="lnote">${GZI.note}<span>${T("act_note")}</span></button></div>
-  <div id="noteform" hidden class="row"><input id="ntext" placeholder="${T("note_ph2")}"><button class="secondary" id="nadd" style="width:auto">${T("add")}</button></div>
+  <div id="noteform" hidden class="notecard"><div class="k">${T("note_at")} <b id="nts">00:00</b></div>
+    <div class="chips" id="nq" style="flex-wrap:wrap">${["nq_start", "nq_cross", "nq_fall", "nq_coach", "nq_tired", "nq_fast"].map(q => `<button type="button" class="chip" data-q="${q}">${T(q)}</button>`).join("")}</div>
+    <input id="ntext" placeholder="${T("note_ph2")}"><div class="row"><button class="secondary" id="ncancel">${T("cancel")}</button><button id="nadd">${T("save_note")}</button></div></div>
   ${L.sensor && L.sensor.device ? "" : `<div class="hint">${T("free_practice_note")}</div>`}
-  <h2>${T("so_far")}</h2><div class="card">${tl.length ? tl.map(x => `<div class="kv"><span>${x.html}</span><span class="meta">${esc(tod(x.at))}</span></div>`).join("") : `<div class="meta">${T("nothing_yet")}</div>`}</div>
+  <h2>${T("so_far")}</h2><div class="card">${tl.length ? tl.map(x => `<div class="kv"><span style="flex:1">${x.html}</span><span class="ts">${x.ts}</span></div>`).join("") : `<div class="meta">${T("nothing_yet")}</div>`}</div>
 `;
 };
 screens.live.init = () => {
@@ -1373,12 +1431,15 @@ screens.live.init = () => {
   $("#lpause").onclick = () => { if (L.paused) { L.pause_ms = (L.pause_ms || 0) + (Date.now() - L.paused); L.paused = null; } else L.paused = Date.now(); persist(); render(); };
   $("#lvid").onclick = () => { vidReset({ practice: true }); go("racevideo"); };
   $("#llap").onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0, race: null, practice: true }); go("stopwatch"); };
-  $("#lnote").onclick = () => { $("#noteform").hidden = false; $("#ntext").focus(); };
-  $("#nadd").onclick = () => { const v = $("#ntext").value.trim(); if (!v) return; L.notes.push({ at: new Date().toISOString(), text: v }); persist(); render(); };
+  let noteAt = null;
+  $("#lnote").onclick = () => { noteAt = { at: new Date().toISOString(), t_s: Math.round(run() / 1000) }; $("#nts").textContent = mmss(noteAt.t_s); $("#noteform").hidden = false; $("#ntext").focus(); };
+  $("#nq").onclick = ev => { const b = ev.target.closest(".chip"); if (!b) return; const x = $("#ntext"); x.value = (x.value ? x.value + ", " : "") + b.textContent; b.classList.add("on"); };
+  $("#ncancel").onclick = () => { $("#noteform").hidden = true; $("#ntext").value = ""; };
+  $("#nadd").onclick = () => { const v = $("#ntext").value.trim(); if (!v || !noteAt) return; L.notes.push({ ...noteAt, text: v }); persist(); render(); };
   $("#lstop").onclick = () => {
     const now = new Date().toISOString(), on = L.sensor && L.sensor.device;
     const s = { id: uid(), skater_id: L.skater_id, date: L.start, end: now, rink_id: L.rink_id, setup_id: (L.changes.find(c => c.setup_id) ? L.items[0] && L.items[0].setup_id : null) || L.setup_id,
-                source: "stopwatch", verified: false, items: L.items, recorded_by: role(), notes: L.notes.map(n => `${tod(n.at)} ${n.text}`).join("\n") || null,
+                source: "stopwatch", verified: false, items: L.items, recorded_by: role(), notes: L.notes.map(n => `${n.t_s != null ? mmss(n.t_s) : tod(n.at)} ${n.text}`).join("\n") || null,
                 sensor: on ? L.sensor : null, changes: L.changes, duration_s: Math.round(run() / 1000) };
     S.sessions.push(s); S.live = null; S.viewSession = s.id; S.selDay = dayKey(new Date(s.date)); persist(); toast(t("session_saved")); go("session");
   };
@@ -1677,7 +1738,12 @@ screens.plan = () => {
     <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(nx.date + "T00:00"), { weekday: "long", day: "numeric", month: "short" }))}${rk ? " · " + esc(rk.name) : ""}${nx.notes ? " · " + esc(nx.notes) : ""}</div></div>` : ""}
   <button onclick="go('planadd')">${T("add_plan")}</button>
   ${rest.length ? `<h2>${T("upcoming")}</h2>${rest.map(planCard).join("")}` : nx ? "" : `<h2>${T("upcoming")}</h2><div class="card meta">${T("nothing_planned")}</div>`}
-  <h2>${T("recent_sessions")}</h2>${pastPlans.map(planCard).join("")}${past.map(sessionCard).join("") || (pastPlans.length ? "" : `<div class="card meta">${T("no_data_yet")}</div>`)}`;
+  <h2>${T("recent_sessions")}</h2>${pastPlans.map(planCard).join("")}${(() => {
+    const g = {}; past.forEach(x => { const d = new Date(x.date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); (g[dayKey(d)] = g[dayKey(d)] || []).push(x); });
+    return Object.keys(g).sort().reverse().map(wk => { const L2 = g[wk], sc = L2.map(scoreOf).filter(v => v != null), a = sc.length ? Math.round(sc.reduce((p, c) => p + c, 0) / sc.length) : null, pbn = L2.filter(isPB).length;
+      return `<div class="wkgroup"><div class="wkhead"><b>${T("week_of_d", { d: esc(dfmt(new Date(wk + "T00:00"), { day: "numeric", month: "short" })) })}</b>
+        <span><span class="wkchip"><b>${L2.length}</b>${T("sessions_n", { n: "" }).trim()}</span>${a != null ? `<span class="wkchip ${band(a)}"><b>${a}</b>${T("avg_score")}</span>` : ""}${pbn ? `<span class="pb">PB ×${pbn}</span>` : ""}</span></div>
+        ${L2.map(sessionCard).join("")}</div>`; }).join("") || (pastPlans.length ? "" : `<div class="card meta">${T("no_data_yet")}</div>`); })()}`;
 };
 screens.plan.init = () => { wireWho(); wireSessions(); };
 screens.planadd = () => `${back("plan", "")}<h1>${T("add_plan").replace("+ ", "")}</h1>
@@ -1710,9 +1776,53 @@ screens.insights = () => {
   ${tier === "free" ? `<button class="secondary" onclick="go('settings')">${T("see_plans")}</button>` : ""}`;
 };
 screens.insights.init = wireWho;
-screens.learn = () => `${shellTop()}<h1>${T("learn_title")}</h1><p class="sub">${T("learn_sub")}</p>
-  ${[1, 2, 3, 4].map(i => `<div class="card"><b>${T("learn_" + i)}</b><div class="meta">${T("coming_soon")}</div></div>`).join("")}`;
-screens.learn.init = wireWho;
+const LEARN = [                                        // sample library for the prototype; titles stand in for real content
+  { id: "l1", kind: "video", mins: 6, cats: ["quad", "inline", "race"], tags: ["Starts", "Technique"], title: "Standing starts: the first five strokes", d: "How to load the front leg, fall into the first stroke and build speed in five short, fast pushes." },
+  { id: "l2", kind: "video", mins: 8, cats: ["quad", "inline"], tags: ["Crossovers", "Cadence"], title: "Crossovers: keeping the rhythm in the bends", d: "Short, quick crossovers keep speed through the corners. Drills to raise crossover cadence without losing grip." },
+  { id: "l3", kind: "video", mins: 5, cats: ["inline", "general"], tags: ["Posture", "Straights"], title: "Staying low on the straights", d: "Knee bend, hip angle and where to look: holding a low position for a whole lap." },
+  { id: "l4", kind: "article", mins: 4, cats: ["meets", "general"], tags: ["Race day", "Gear"], title: "Race day checklist", d: "What to pack, when to warm up, and how to handle a late start time." },
+  { id: "l5", kind: "video", mins: 20, cats: ["fitness"], tags: ["Strength", "At home"], title: "Off-skate leg strength: 20-minute circuit", d: "Squats, lunges, lateral hops and wall sits that build skating power at home." },
+  { id: "l6", kind: "video", mins: 12, cats: ["fitness"], tags: ["Mobility", "Injury prevention"], title: "Mobility for skaters: hips and ankles", d: "A daily routine to keep hips and ankles loose for deeper knee bend." },
+  { id: "l7", kind: "article", mins: 5, cats: ["nutrition"], tags: ["Race day", "Food"], title: "What to eat before a morning race", d: "Simple, familiar food 2–3 hours before; small snacks between heats." },
+  { id: "l8", kind: "article", mins: 3, cats: ["nutrition"], tags: ["Heat", "Hydration"], title: "Hydration in hot rinks", d: "How much to drink on hot days and the signs of running low." },
+  { id: "l9", kind: "video", mins: 7, cats: ["race"], tags: ["Pacing", "500 m"], title: "Race video: pacing a 500 m final", d: "Lap by lap through a 500 m final: where the race is won and lost." },
+  { id: "l10", kind: "video", mins: 6, cats: ["quad"], tags: ["Starts", "Toe stops"], title: "Quad skates: toe-stop starts", d: "Using the toe stop for a faster, cleaner standing start." },
+  { id: "l11", kind: "video", mins: 9, cats: ["inline"], tags: ["Double push", "Technique"], title: "Inline: double-push basics", d: "The in-out motion of the double push, step by step." },
+  { id: "l12", kind: "article", mins: 6, cats: ["meets", "general"], tags: ["Rounds", "Rules"], title: "How meets work: heats, semis and finals", d: "Who goes through, how photo finishes are decided and what a false start means." },
+  { id: "l13", kind: "article", mins: 5, cats: ["general", "quad", "inline"], tags: ["Gear", "Surfaces"], title: "Wheels and bearings on rough rinks", d: "Why harder wheels drift on damaged or concrete surfaces, and what to change." },
+];
+const LCATS = ["all", "quad", "inline", "fitness", "race", "nutrition", "meets", "general"];
+function learnMeets() {                               // upcoming meets come from Plan and from open meets
+  const k = currentSkater(), today = dayKey(new Date());
+  return [...S.plans.filter(p => p.type === "race" && p.date >= today && (!k || p.skater_id === k.id || p.skater_id === "all")).map(p => ({ title: p.title || t("race"), date: p.date, rink: p.rink_id })),
+          ...eventsFor(k).filter(e => !e.closed).map(e => ({ title: e.name || t("race_event"), date: eventDays(e).at(-1), rink: e.rink_id, live: true }))];
+}
+screens.learn = () => {
+  const f = S.learnCat || "all", items = LEARN.filter(x => f === "all" || x.cats.includes(f)), M = f === "meets" || f === "all" ? learnMeets() : [];
+  const icon2 = x => x.kind === "video" ? `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/></svg>`;
+  return `${shellTop()}<h1>${T("learn_title")}</h1>
+  <div class="chips" id="lcat">${LCATS.map(c => `<button type="button" class="chip ${c === f ? "on" : ""}" data-c="${c}">${T("lc_" + c)}</button>`).join("")}</div>
+  ${M.map(m => `<div class="card lcard raced">${LANES}<div class="thumb ev"><b>${new Date(m.date + "T00:00").getDate()}</b><span>${esc(dfmt(new Date(m.date + "T00:00"), { month: "short" }))}</span></div>
+     <div><b>${esc(m.title)}</b>${m.live ? ` <span class="badge pro">${T("meet_active")}</span>` : ""}<div class="meta">${T("lc_meets")} · ${esc((S.rinks.find(z => z.id === m.rink) || {}).name || "")}</div>
+     <div class="tags"><span class="tag">${T("lc_meets")}</span><span class="tag">${esc((S.rinks.find(z => z.id === m.rink) || {}).short || "")}</span></div></div></div>`).join("")}
+  ${items.map(x => `<div class="card lcard tap" data-li="${x.id}"><div class="thumb ${x.kind} ${x.cats.includes("fitness") || x.cats.includes("nutrition") ? "striped" : ""}">${icon2(x)}</div>
+     <div><b>${esc(x.title)}</b><div class="meta">${T(x.kind === "video" ? "kind_video" : "kind_article")} · ${T("mins_n", { n: x.mins })}</div>
+     <div class="tags">${x.cats.map(c => `<span class="tag c">${T("lc_" + c)}</span>`).join("")}${x.tags.map(g => `<span class="tag">${esc(g)}</span>`).join("")}</div></div></div>`).join("") || (M.length ? "" : `<div class="card meta">${T("nothing_here")}</div>`)}
+  <div class="hint">${T("learn_sample")}</div>`;
+};
+screens.learn.init = () => { wireWho();
+  $("#lcat").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; S.learnCat = b.dataset.c; persist(); render(); };
+  document.querySelectorAll("[data-li]").forEach(c => c.onclick = () => { S.learnItem = c.dataset.li; persist(); go("learnitem"); }); };
+screens.learnitem = () => {
+  const x = LEARN.find(z => z.id === S.learnItem); if (!x) { setTimeout(() => go("learn")); return ""; }
+  const rel = LEARN.filter(z => z.id !== x.id && z.tags.some(g => x.tags.includes(g))).slice(0, 3);
+  return `${back("learn", "")}<div class="player ${x.kind}">${x.kind === "video" ? `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>` : ""}<span>${T(x.kind === "video" ? "video_soon" : "article_soon")}</span></div>
+  <h1>${esc(x.title)}</h1><div class="meta">${T(x.kind === "video" ? "kind_video" : "kind_article")} · ${T("mins_n", { n: x.mins })}</div>
+  <div class="tags" style="margin:12px 0">${x.cats.map(c => `<span class="tag c">${T("lc_" + c)}</span>`).join("")}${x.tags.map(g => `<span class="tag">${esc(g)}</span>`).join("")}</div>
+  <p>${esc(x.d)}</p>
+  ${rel.length ? `<h2>${T("related")}</h2>${rel.map(z => `<div class="card tap" data-li="${z.id}"><b>${esc(z.title)}</b><div class="tags">${z.tags.map(g => `<span class="tag">${esc(g)}</span>`).join("")}</div></div>`).join("")}` : ""}`;
+};
+screens.learnitem.init = () => document.querySelectorAll("[data-li]").forEach(c => c.onclick = () => { S.learnItem = c.dataset.li; persist(); render(); });
 
 // ================================================================ coach invite
 screens.invite = () => {
@@ -1929,7 +2039,6 @@ const SHELL = ["home", "plan", "skate", "insights", "learn", "club"];
 function render() {
   document.documentElement.classList.toggle("light", !!(S.settings && S.settings.theme === "light"));
   document.documentElement.lang = LANG;
-  $("#proto").textContent = t("proto_banner");
   let r = (location.hash || "#").slice(1) || nextRoute();
   if (!screens[r]) r = nextRoute();
   const nr = nextRoute();
