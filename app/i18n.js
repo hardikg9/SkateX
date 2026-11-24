@@ -374,6 +374,18 @@ window.SL_I18N = {
   video_save_phone: "Save video to phone",
   marks_edit: "edit marks",
   marks_save: "Save race timing",
+  // 0.8 look
+  gz_hi: "Hey {name} 👋",
+  gz_ready: "Ready to roll?",
+  gz_back_in: "Back to it",
+  gz_start_now: "Start now",
+  gz_open_meet: "Open meet",
+  gz_new_meet: "Add a meet",
+  gz_on_track: "On track",
+  gz_session: "Session time",
+  gz_battery: "Connected · battery {b}%",
+  gz_recording_motion: "Records motion",
+  gz_quick_check: "Quick check, then go",
   // 0.7 skate tab, practice, meets
   practice: "Practice",
   race: "Race",
