@@ -9,11 +9,11 @@
 <title>SkateLog</title>
 <style>
   :root {
-    --bg: #F2F2F7; --card: #ffffff; --ink: #0A0E1A; --muted: #5B6479; --line: #E3E3EA; --soft: #E9ECF5;
+    --bg: #F2F2F7; --card: #E6EBF4; --ink: #0A0E1A; --muted: #535C72; --line: #D3DAE8; --soft: #D9E0EE;
     --accent: #2A64C5; --accent-ink: #ffffff; --link: #2A64C5; --ring: #2A64C5; --danger: #C62828; --ok: #1B7F3B; --warn-bg: #FFF1DC; --warn-ink: #7A4A00;
     --pro: #2A64C5; --elite: #36496E; --radius: 16px; --pad: 18px;
     --midnight: #0A0E1A; --section: #223148; --surface: #36496E; --rink: #2A64C5; --cyan: #5CE1FF; --lime: #D4F53C; --signal: #F2923A;
-    --nav: #ffffff; --sec-bg: #ffffff; --sec-line: #D6DBE8;
+    --nav: #E6EBF4; --sec-bg: #D9E0EE; --sec-line: #B9C3D9;
     --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
@@ -128,6 +128,19 @@
   body.gz .card { border-radius: 20px; }
   body.gz .chip.on { background: var(--accent); color: #fff; }
   body.gz .badge { border-radius: 8px; font-weight: 800; }
+  /* Motif rule: anything that is a RACE (practice race or competition) gets lapped lanes around it; anything that is PRACTICE gets sloped cross stripes over its right 20% */
+  .lapped { position: relative; overflow: hidden; isolation: isolate; --lr: 22px; }
+  .lapped > .lane { position: absolute; pointer-events: none; z-index: -1; border: 3px solid transparent; }
+  .lapped > .lane.l1 { inset: 7px; border-radius: calc(var(--lr) - 7px); border-top-color: var(--rink); border-right-color: var(--rink); border-bottom-color: var(--rink); }
+  .lapped > .lane.l2 { inset: 13px; border-radius: calc(var(--lr) - 13px); border-top-color: var(--cyan); border-right-color: var(--cyan); }
+  .lapped > .lane.l3 { inset: 19px; border-radius: calc(var(--lr) - 19px); border-right-color: var(--lime); border-bottom-color: var(--lime); }
+  .lapped.dim > .lane { opacity: .35; }
+  .striped { position: relative; overflow: hidden; isolation: isolate; }
+  .striped::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 20%; z-index: -1; pointer-events: none;
+                    background: linear-gradient(104deg, transparent 0 24%, var(--rink) 24% 52%, var(--cyan) 52% 76%, var(--lime) 76% 100%); }
+  .gz-racebox { background: var(--surface); color: #F2F2F7; border-radius: 22px; padding: 28px 30px; margin: 10px 0; text-align: center; }
+  .gz-pracbox { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 22px 22% 22px 16px; margin: 10px 0; text-align: center; }
+  .gz-racebox .timer, .gz-pracbox .timer { margin: 0; }
   /* sensor strip */
   .gz-sensor { display: flex; align-items: center; gap: 10px; padding: 11px 14px 11px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line);
                cursor: pointer; margin: 2px 0 16px; font-weight: 700; }
@@ -141,34 +154,33 @@
   .gz-hero { position: relative; overflow: hidden; border-radius: 22px; padding: 22px 20px 22px; margin: 14px 0; color: #F2F2F7; cursor: pointer; min-height: 164px;
              background: var(--section); transition: transform .15s ease; isolation: isolate; }
   .gz-hero:active { transform: scale(.98); }
-  .gz-hero.race { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
-  @media (prefers-color-scheme: light) { .gz-hero.race { background: #fff; } }
-  .gz-hero.practice::after { content: ""; position: absolute; right: -14px; top: 0; width: 132px; height: 58px; z-index: -1; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 60'%3E%3Cpath d='M34 0h56l-22 60h-56z' fill='%232A64C5'/%3E%3Cpath d='M66 0h40l-22 60h-40z' fill='%235CE1FF' fill-opacity='.85'/%3E%3Cpath d='M98 0h22l-22 60h-22z' fill='%23D4F53C' fill-opacity='.9'/%3E%3C/svg%3E") no-repeat center / 100% 100%; }
+  .gz-hero.race { background: var(--surface); padding: 30px 34px 28px; }
+  .gz-hero.race .ico { right: 38px; top: 34px; color: rgba(242,242,247,.7); }
   .gz-hero.practice .ico { display: none; }
   .gz-hero .ico { position: absolute; right: 18px; top: 18px; width: 56px; height: 56px; color: var(--muted); }
   .gz-hero .ttl { font-family: var(--display); font-size: 44px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: -.01em; line-height: .95; }
-  .gz-hero .sub2 { margin-top: 8px; font-weight: 500; font-size: 14px; opacity: .85; max-width: 78%; }
+  .gz-hero .sub2 { margin-top: 8px; font-weight: 500; font-size: 14px; opacity: .85; max-width: 72%; }
   .gz-hero .pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; background: var(--rink); color: #fff; border: 1px solid rgba(255,255,255,.35);
                    outline: 1.5px solid var(--cyan); outline-offset: 3px; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
-  .gz-hero.race .pill { background: transparent; color: var(--ink); border: 1.5px solid var(--sec-line); outline: 0; }
+  .gz-hero.race .pill { background: transparent; color: #F2F2F7; border: 1.5px solid rgba(242,242,247,.55); outline: 0; }
   .gz-hero .pill .live { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); animation: gzpulse 1.6s infinite; }
   .gz-hi { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
   /* running practice: timer inside the three-lane track */
-  .gz-timer { text-align: center; border-radius: 22px; padding: 18px 10px; margin: 8px 0 14px; color: #F2F2F7; background: var(--section);
-              min-height: 196px; display: flex; flex-direction: column; justify-content: center; position: relative; isolation: isolate; }
-  .gz-timer::before { content: ""; position: absolute; inset: 14px 18px; z-index: -1; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 264 160'%3E%3Crect x='4.5' y='4.5' width='255.0' height='151.0' rx='75.5' fill='none' stroke='%2336496E' stroke-width='7'/%3E%3Crect x='4.5' y='4.5' width='255.0' height='151.0' rx='75.5' fill='none' stroke='%232A64C5' stroke-width='7' stroke-linecap='round' pathLength='100' stroke-dasharray='78 100'/%3E%3Crect x='16.5' y='16.5' width='231.0' height='127.0' rx='63.5' fill='none' stroke='%2336496E' stroke-width='7'/%3E%3Crect x='16.5' y='16.5' width='231.0' height='127.0' rx='63.5' fill='none' stroke='%235CE1FF' stroke-width='7' stroke-linecap='round' pathLength='100' stroke-dasharray='56 100'/%3E%3Crect x='28.5' y='28.5' width='207.0' height='103.0' rx='51.5' fill='none' stroke='%2336496E' stroke-width='7'/%3E%3Crect x='28.5' y='28.5' width='207.0' height='103.0' rx='51.5' fill='none' stroke='%23D4F53C' stroke-width='7' stroke-linecap='round' pathLength='100' stroke-dasharray='34 100'/%3E%3C/svg%3E") no-repeat center / contain; }
+  .gz-timer { text-align: center; border-radius: 22px; padding: 18px 20% 18px 10px; margin: 8px 0 14px; color: #F2F2F7; background: var(--section);
+              min-height: 150px; display: flex; flex-direction: column; justify-content: center; position: relative; isolation: isolate; }
   .gz-timer .lbl { font-size: 11.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--cyan); }
   .gz-timer .big { font-family: var(--display); font-size: 60px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
   .gz-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 4px; }
   body.gz main button.gz-tile { border-radius: 16px; padding: 15px 14px; min-height: 96px; font-weight: 600; font-size: 15px; text-transform: none; letter-spacing: 0; line-height: 1.15; text-align: left;
              display: flex; flex-direction: column; justify-content: space-between; margin: 0; background: var(--sec-bg); color: var(--ink); border: 1.5px solid var(--sec-line); outline: 0; }
   .gz-tile svg { width: 26px; height: 26px; }
-  body.gz main button.gz-tile.v { grid-column: 1 / 3; min-height: 72px; background: var(--rink); color: #fff; border: 1px solid rgba(255,255,255,.35); outline: 1.5px solid var(--ring); outline-offset: 3px;
+  body.gz main button.gz-tile.v { grid-column: 1 / 3; min-height: 88px; padding: 24px 32px; --lr: 16px; background: var(--surface); color: #F2F2F7; border: 0; outline: 1.5px solid var(--ring); outline-offset: 3px;
              flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
   body.gz main button.gz-stop { background: transparent; color: var(--signal); border: 1.5px solid var(--signal); outline: 1px solid rgba(242,146,58,.4); outline-offset: 3px; font-size: 16px; padding: 16px; }
-  body.gz main button.gz-go, body.gz main button.gz-race-go { font-size: 17px; padding: 18px; }
-  body.gz .gz-meet { border-color: var(--signal); }
-  body.gz .gz-meet.closed { border-color: var(--line); }
+  body.gz main button.gz-go { font-size: 17px; padding: 18px; }
+  body.gz main button.gz-race-go { font-size: 17px; padding: 24px 30px; --lr: 14px; background: var(--surface); color: #F2F2F7; border: 0; }
+  body.gz .gz-meet { --lr: 20px; background: var(--surface); color: #F2F2F7; border: 0; padding: 26px 32px 24px; }
+  body.gz .gz-meet .meta { color: #C9D1E3; }
   #print { display: none; }
   @media print {
     @page { size: A4; margin: 14mm 12mm 16mm; }
@@ -629,14 +641,14 @@ screens.stopwatch = () => {
   const open = S.sessions.filter(x => x.source === "stopwatch" && (Date.now() - new Date(x.end)) < WINDOW_H * 36e5).sort((a, b) => b.end.localeCompare(a.end))[0];
   const rc = SW.race && (S.events || []).find(z => z.id === SW.race.eid), rr = rc && rc.races.find(z => z.id === SW.race.rid);
   if (rr || SW.practice) return `${back(rr ? "race" : "live", "")}<h1>${rr ? esc(raceLabel(rr)) : T("act_time_laps")}</h1><p class="sub">${rr ? esc(rr.who === "other" ? (rr.other_label || t("someone_else")) : (rc.name || "")) + " · " : ""}${T("race_timing_d")}</p>
-  <div class="timer" id="tm">${fmtTime(el)}</div>
-  <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--danger)">${T("sw_stop")}</button>`
+  <div class="${rr ? "gz-racebox lapped" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
+  <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_save")}</button>` : `<button id="go">${T("sw_start")}</button>`}</div>
   <div class="laps card">${SW.laps.map((l, i) => `<div class="lapline ${i === bestI ? "best" : ""}"><span>${T("lap_n", { n: i + 1 })}</span><span>${fmtLap(l)} s</span></div>`).reverse().join("") || `<div class="meta">${T("race_timing_hint")}</div>`}</div>`;
   return `${back("skate", "")}<h1>${T("stopwatch")}</h1><p class="sub">${open ? T("sw_open", { rink: esc((rinkOf(open) || {}).short || ""), time: esc(tod(open.date)), n: okItems(open).length }) : T("sw_sub")}</p>
   <div class="timer" id="tm">${fmtTime(el)}</div>
   <div class="row">
-    ${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--danger)">${T("sw_stop")}</button>`
+    ${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_next")}</button>`
       : `<button id="go">${T("sw_start")}</button>`}
   </div>
@@ -1202,16 +1214,17 @@ screens.sensor.init = () => {
 };
 
 // ---------------------------------------------------------------- Skate: two choices
+const LANES = `<i class="lane l1"></i><i class="lane l2"></i><i class="lane l3"></i>`;
 screens.skate = () => {
   const k = currentSkater(); S.sensorBack = "skate";
   if (role() === "coach") return `${shellTop()}<h1>${T("skate_title")}</h1><div class="card"><b>${T("coach_sw")}</b><div class="meta">${T("coach_sw_d")}</div></div>`;
   if (!k) return `${shellTop()}<h1>${T("skate_title")}</h1><div class="card meta">${T("squad_empty")}</div>`;
   const L = S.live, act = (S.events || []).filter(e => !e.closed && e.skater_id === k.id);
   return `${shellTop()}<p class="gz-hi">${T("gz_hi", { name: esc(k.display_name) })}</p><h1>${T("gz_ready")}</h1>${sensorBar()}
-  <div class="gz-hero practice" onclick="go('${L ? "live" : "practice"}')"><div class="ico">${GZI.wheel}</div><div class="ttl">${T("practice")}</div>
+  <div class="gz-hero practice striped" onclick="go('${L ? "live" : "practice"}')"><div class="ico">${GZI.wheel}</div><div class="ttl">${T("practice")}</div>
     <div class="sub2">${L ? T("practice_running", { min: Math.round((Date.now() - new Date(L.start)) / 6e4), rink: esc((S.rinks.find(r => r.id === L.rink_id) || {}).short || "") }) : T("practice_d")}</div>
     <div class="pill">${L ? `<span class="live"></span>${T("gz_back_in")}` : T("gz_start_now")}</div></div>
-  <div class="gz-hero race" onclick="go('races')"><div class="ico">${GZI.flag}</div><div class="ttl">${T("race")}</div>
+  <div class="gz-hero race lapped" onclick="go('races')">${LANES}<div class="ico">${GZI.flag}</div><div class="ttl">${T("race")}</div>
     <div class="sub2">${act.length ? T("meets_active", { n: act.length, names: esc(act.map(e => e.name || t("race_event")).join(", ")) }) : T("race_d")}</div>
     <div class="pill">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")}</div></div>`;
 };
@@ -1250,8 +1263,8 @@ screens.live = () => {
               ...L.changes.map(c => ({ at: c.at, html: c.setup_id ? T("changed_setup", { s: esc(setupLabel(setupOf(k, c.setup_id)) || "") }) : T("changed_sensor", { s: esc(sensorText(c.sensor)) }) }))]
               .sort((a, b) => b.at.localeCompare(a.at));
   return `<p class="gz-hi">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
-  <div class="gz-timer"><div class="lbl">● ${T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
-  <div class="gz-tiles"><button class="gz-tile v" id="lvid">${GZI.cam}<span>${T("act_practice_race")}</span></button>
+  <div class="gz-timer striped"><div class="lbl">● ${T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
+  <div class="gz-tiles"><button class="gz-tile v lapped" id="lvid">${LANES}${GZI.cam}<span>${T("act_practice_race")}</span></button>
     <button class="gz-tile l" id="llap">${GZI.watch}<span>${T("act_time_laps")}</span></button>
     <button class="gz-tile n" id="lnote">${GZI.note}<span>${T("act_note")}</span></button></div>
   <div class="card" style="padding:10px 14px"><label for="lsu" style="margin-top:2px">${T("skate_setup")}</label>${setupSelect("lsu", k, L.setup_id)}</div>
@@ -1313,7 +1326,7 @@ function eventDays(e) { const d = [...new Set(e.races.map(x => x.day || e.date))
 function eventCard(e) {
   const r = S.rinks.find(z => z.id === e.rink_id), D = eventDays(e), mine = selfRaces(e);
   const res = mine.map(x => `${x.m} m${x.position ? " " + ord(x.position) : ""}`).join(" · ");
-  return `<div class="card tap gz-meet ${e.closed ? "closed" : ""}" data-ev="${e.id}"><span class="badge ${e.closed ? "" : "pro"}">${T(e.closed ? "meet_closed" : "meet_active")}</span>
+  return `<div class="card tap gz-meet lapped ${e.closed ? "closed dim" : ""}" data-ev="${e.id}">${LANES}<span class="badge ${e.closed ? "" : "pro"}">${T(e.closed ? "meet_closed" : "meet_active")}</span>
     <b style="margin-left:6px">${esc(e.name || t("race_event"))}</b><div class="meta">${esc(r ? r.name : "")} · ${esc(dfmt(new Date(D[0] + "T12:00"), { day: "numeric", month: "short" }))}${D.length > 1 ? " – " + esc(dfmt(new Date(D.at(-1) + "T12:00"), { day: "numeric", month: "short" })) : ""} · ${T("races_n", { n: mine.length })}</div>
     ${res ? `<div class="meta">${esc(res)}</div>` : ""}</div>`;
 }
@@ -1332,7 +1345,7 @@ screens.races = () => {
   const act = E.filter(e => !e.closed), past = E.filter(e => e.closed);
   return `${back("skate", "")}<h1>${T("race")}</h1>${sensorBar()}
   <h2>${T("meets_active_h")}</h2>${act.map(eventCard).join("") || `<div class="card meta">${T("no_active_meets")}</div>`}
-  <div class="row"><button class="gz-race-go" style="font-size:17px" onclick="S.raceAddPast=false;go('raceadd')">${T("new_meet")}</button><button class="secondary" onclick="S.raceAddPast=true;go('raceadd')">${T("past_meet")}</button></div>
+  <div class="row"><button class="gz-race-go lapped" style="font-size:17px" onclick="S.raceAddPast=false;go('raceadd')">${LANES}${T("new_meet")}</button><button class="secondary" onclick="S.raceAddPast=true;go('raceadd')">${T("past_meet")}</button></div>
   <h2>${T("meets_closed_h")}</h2>${past.map(eventCard).join("") || `<div class="card meta">${T("no_races_yet")}</div>`}`;
 };
 screens.races.init = wireEvents;
@@ -1370,7 +1383,7 @@ screens.race = () => {
       <span>${x.position ? ord(x.position) + " · " : ""}${raceTime(x) ? fmtRT(raceTime(x)) : "–"}</span></div>`; };
   return `${back("races", "")}<h1>${esc(e.name || t("race_event"))}</h1>
   <p class="sub">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")} · ${esc(su ? setupLabel(su) : t("setup_unknown"))}${e.closed ? ` · <span class="badge">${T("meet_closed")}</span>` : ""}</p>
-  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go">${T("start_race")}</button>
+  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go lapped">${LANES}${T("start_race")}</button>
   <p style="text-align:center"><a href="#" id="rmanual" class="meta">${T("add_race_by_hand")}</a></p>`}
   ${days.map(d => { const R = e.races.filter(x => (x.day || e.date) === d).sort((a, b) => ((a.timing && a.timing.at) || "").localeCompare((b.timing && b.timing.at) || ""));
     return `<h2>${esc(dfmt(new Date(d + "T12:00"), { weekday: "long", day: "numeric", month: "short" }))}</h2><div class="card">${R.map(row).join("") || `<div class="meta">${T("no_races_day")}</div>`}</div>`; }).join("")}
@@ -1404,7 +1417,7 @@ screens.racestart = () => {
   <label>${T("who_racing")}</label><div class="seg" id="rsw"><button type="button" data-v="self" class="${f.who === "self" ? "on" : ""}">${esc(k ? k.display_name : "")}</button><button type="button" data-v="other" class="${f.who === "other" ? "on" : ""}">${T("someone_else")}</button></div>
   ${f.who === "other" ? `<input id="rsl" placeholder="${T("other_label_ph")}" value="${esc(f.label || "")}"><div class="hint">${T("field_note")}</div>` : ""}
   <label>${T("timing_how")}</label><div class="seg" id="rsv"><button type="button" data-v="video" class="${f.method === "video" ? "on" : ""}">${T("with_video")}</button><button type="button" data-v="sw" class="${f.method === "sw" ? "on" : ""}">${T("without_video")}</button></div>
-  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go">${T("open_recorder")}</button>`;
+  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go lapped">${LANES}${T("open_recorder")}</button>`;
 };
 screens.racestart.init = () => {
   const f = S.rsForm; if (!$("#rsgo")) return;
