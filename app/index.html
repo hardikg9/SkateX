@@ -117,23 +117,21 @@
   .chip.on { background: var(--accent); color: var(--accent-ink); }
 
   /* ---- v0.8 Skate look: bold, bright, kid-first (Skate tab, Practice, Race screens only; body.gz) ---- */
-  body.gz { --g1: #7c3aed; --g2: #ec4899; --g3: #f97316; --g4: #facc15; --lime: #a3e635; --cyan: #22d3ee; --gz-card: rgba(255,255,255,.78);
-            --gz-ink: #160f2e; --gz-muted: #6b6488; --gz-line: rgba(124,58,237,.14); --gz-r: 24px;
-            background: radial-gradient(900px 520px at 110% -10%, #ffd6f2 0, transparent 60%), radial-gradient(700px 520px at -20% 20%, #dcd3ff 0, transparent 55%),
-                        radial-gradient(800px 600px at 50% 120%, #d9fbe8 0, transparent 60%), #fbf8ff;
-            color: var(--gz-ink); font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body.gz { --g1: #4f46e5; --g2: #7c3aed; --g3: #f97316; --g4: #facc15; --lime: #a3e635; --cyan: #22d3ee; --gz-card: rgba(255,255,255,.78);
+            --gz-ink: #160f2e; --gz-muted: #6b6488; --gz-line: rgba(124,58,237,.14); --gz-r: 18px;
+            background: radial-gradient(900px 520px at 110% -10%, #e4e2ff 0, transparent 60%), radial-gradient(700px 520px at -20% 30%, #eef0f6 0, transparent 55%), #f5f6fa;
+            color: var(--gz-ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
   @media (prefers-color-scheme: dark) {
     body.gz { --gz-card: rgba(30,22,58,.72); --gz-ink: #f5f1ff; --gz-muted: #b9b0d9; --gz-line: rgba(196,170,255,.16);
-              background: radial-gradient(900px 520px at 110% -10%, #4a1240 0, transparent 60%), radial-gradient(700px 520px at -20% 20%, #2b1f6b 0, transparent 55%),
-                          radial-gradient(800px 600px at 50% 120%, #0f3b33 0, transparent 60%), #0d0a1c; }
+              background: radial-gradient(900px 520px at 110% -10%, #1e1b4b 0, transparent 60%), #0b0d14; }
   }
   body.gz main { color: var(--gz-ink); }
-  body.gz h1 { font-size: 34px; font-weight: 900; letter-spacing: -.03em; line-height: 1.05; margin: 10px 0 12px; }
+  body.gz h1 { font-size: 32px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.02em; line-height: 1; margin: 10px 0 14px; }
   body.gz h2 { font-weight: 800; letter-spacing: .08em; color: var(--gz-muted); }
   body.gz p.sub, body.gz .meta, body.gz .hint { color: var(--gz-muted); }
   body.gz .card { background: var(--gz-card); border: 1px solid var(--gz-line); border-radius: var(--gz-r); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
                   box-shadow: 0 10px 30px -18px rgba(76,29,149,.45); }
-  body.gz main button:not(.back):not(.topbar button) { border-radius: 999px; font-weight: 800; letter-spacing: .01em; background: linear-gradient(135deg, var(--g1), var(--g2)); color: #fff;
+  body.gz main button:not(.back):not(.topbar button) { border-radius: 16px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 15px; background: linear-gradient(135deg, var(--g1), var(--g2)); color: #fff;
                    box-shadow: 0 12px 24px -12px rgba(236,72,153,.7); transition: transform .12s ease; }
   body.gz main button:not(.back):not(.topbar button):active { transform: scale(.97); }
   body.gz main button:not(.back):not(.topbar button).secondary { background: var(--gz-card); color: var(--g1); border: 1.5px solid var(--gz-line); box-shadow: none; }
@@ -144,7 +142,7 @@
   body.gz main .seg button:not(.back):not(.topbar button) { border-radius: 999px; background: transparent; color: var(--gz-ink); box-shadow: none; border: 0 !important; }
   body.gz main .seg button:not(.back):not(.topbar button).on { background: linear-gradient(135deg, var(--g1), var(--g2)); color: #fff; }
   body.gz .chip { border-radius: 999px; background: var(--gz-card); border: 1.5px solid var(--gz-line); font-weight: 700; padding: 8px 14px; }
-  body.gz .chip.on { background: var(--gz-ink); color: var(--lime); border-color: var(--gz-ink); }
+  body.gz .chip.on { background: var(--gz-ink); color: #d9f99d; border-color: var(--gz-ink); }
   body.gz .badge { border-radius: 999px; font-weight: 800; }
   body.gz .kv { border-color: var(--gz-line); }
   /* sensor pill */
@@ -156,38 +154,38 @@
   .gz-sensor .go { font-size: 13px; font-weight: 800; color: var(--g1); background: rgba(124,58,237,.1); padding: 5px 11px; border-radius: 999px; }
   @keyframes gzpulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
   /* the two big choices */
-  .gz-hero { position: relative; overflow: hidden; border-radius: 30px; padding: 24px 22px 22px; margin: 14px 0; color: #fff; cursor: pointer; min-height: 168px;
+  .gz-hero { position: relative; overflow: hidden; border-radius: 22px; padding: 24px 22px 22px; margin: 14px 0; color: #fff; cursor: pointer; min-height: 168px;
              box-shadow: 0 22px 40px -22px rgba(76,29,149,.75); transition: transform .15s ease; isolation: isolate; }
   .gz-hero:active { transform: scale(.98); }
-  .gz-hero.practice { background: linear-gradient(135deg, #7c3aed 0%, #c026d3 55%, #ec4899 100%); }
-  .gz-hero.race { background: linear-gradient(135deg, #f97316 0%, #ef4444 55%, #db2777 100%); box-shadow: 0 22px 40px -22px rgba(239,68,68,.75); }
-  .gz-hero::before { content: ""; position: absolute; inset: auto -40px -60px auto; width: 190px; height: 190px; border-radius: 50%; background: rgba(255,255,255,.16); z-index: -1; }
-  .gz-hero::after { content: ""; position: absolute; left: -30px; top: 64%; width: 140%; height: 18px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 26px, transparent 26px 44px);
-                    transform: rotate(-8deg); z-index: -1; }
-  .gz-hero .emo { position: absolute; right: 18px; top: 14px; font-size: 64px; filter: drop-shadow(0 8px 10px rgba(0,0,0,.25)); transform: rotate(-12deg); }
-  .gz-hero .ttl { font-size: 38px; font-weight: 900; letter-spacing: -.03em; line-height: 1; }
+  .gz-hero.practice { background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #7c3aed 100%); }
+  .gz-hero.race { background: linear-gradient(135deg, #111827 0%, #7c2d12 55%, #ea580c 100%); box-shadow: 0 22px 40px -22px rgba(234,88,12,.7); }
+  .gz-hero::after { content: ""; position: absolute; right: -10%; top: 0; bottom: 0; width: 55%; z-index: -1;
+                    background: repeating-linear-gradient(115deg, rgba(255,255,255,.07) 0 10px, transparent 10px 26px); }
+  .gz-hero .ico { position: absolute; right: 16px; top: 16px; width: 74px; height: 74px; color: rgba(255,255,255,.9); }
+  .gz-hero .ttl { font-size: 40px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.02em; line-height: 1; }
   .gz-hero .sub2 { margin-top: 8px; font-weight: 700; opacity: .92; max-width: 74%; }
-  .gz-hero .pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.35);
-                   padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 14px; backdrop-filter: blur(6px); }
-  .gz-hero .pill .live { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); animation: gzpulse 1.6s infinite; }
-  .gz-hi { font-size: 15px; font-weight: 800; color: var(--gz-muted); margin: 4px 0 0; }
+  .gz-hero .pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; background: #d9f99d; color: #0b0d14;
+                   padding: 9px 15px; border-radius: 12px; font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .gz-hero.race .pill { background: #fff; }
+  .gz-hero .pill .live { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: gzpulse 1.6s infinite; }
+  .gz-hi { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gz-muted); margin: 6px 0 0; }
   /* running practice */
-  .gz-timer { text-align: center; border-radius: 30px; padding: 22px 10px 18px; margin: 8px 0 14px; color: #fff;
-              background: linear-gradient(135deg, #111827, #312e81 60%, #7c3aed); box-shadow: 0 22px 40px -22px rgba(49,46,129,.8); }
-  .gz-timer .lbl { font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--lime); }
+  .gz-timer { text-align: center; border-radius: 22px; padding: 22px 10px 18px; margin: 8px 0 14px; color: #fff;
+              background: linear-gradient(135deg, #0b0d14, #1e1b4b 65%, #3730a3); box-shadow: 0 22px 40px -22px rgba(30,27,75,.8); }
+  .gz-timer .lbl { font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #bef264; }
   .gz-timer .big { font-size: 58px; font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
   .gz-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 4px; }
-  body.gz main button:not(.back):not(.topbar button).gz-tile { border-radius: 26px; padding: 16px 14px; min-height: 104px; font-weight: 900; font-size: 16px; line-height: 1.15; cursor: pointer; color: #fff; text-align: left;
+  body.gz main button:not(.back):not(.topbar button).gz-tile { border-radius: 18px; padding: 16px 14px; min-height: 104px; font-weight: 800; font-size: 15px; text-transform: none; letter-spacing: 0; line-height: 1.15; cursor: pointer; color: #fff; text-align: left;
              display: flex; flex-direction: column; justify-content: space-between; margin: 0; box-shadow: 0 14px 26px -16px rgba(0,0,0,.45); }
-  .gz-tile .e { font-size: 32px; }
-  body.gz main button:not(.back):not(.topbar button).gz-tile.v { grid-column: 1 / 3; min-height: 92px; background: linear-gradient(135deg, #0ea5e9, #7c3aed); flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; font-size: 19px; }
-  body.gz main button:not(.back):not(.topbar button).gz-tile.l { background: linear-gradient(135deg, #22c55e, #0d9488); }
-  body.gz main button:not(.back):not(.topbar button).gz-tile.n { background: linear-gradient(135deg, #facc15, #f97316); color: #1c1305; }
+  .gz-tile svg { width: 28px; height: 28px; }
+  body.gz main button:not(.back):not(.topbar button).gz-tile.v { grid-column: 1 / 3; min-height: 88px; background: linear-gradient(135deg, #0369a1, #4f46e5); flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; font-size: 19px; }
+  body.gz main button:not(.back):not(.topbar button).gz-tile.l { background: linear-gradient(135deg, #065f46, #0d9488); }
+  body.gz main button:not(.back):not(.topbar button).gz-tile.n { background: #d9f99d; color: #0b0d14; }
   body.gz main button:not(.back):not(.topbar button).gz-stop { background: linear-gradient(135deg, #e11d48, #be123c); box-shadow: 0 12px 24px -12px rgba(225,29,72,.8); font-size: 18px; padding: 17px; }
-  body.gz main button:not(.back):not(.topbar button).gz-go { font-size: 21px; padding: 19px; background: linear-gradient(135deg, #22c55e, #16a34a 50%, #0d9488); box-shadow: 0 14px 26px -12px rgba(22,163,74,.75); }
-  body.gz main button:not(.back):not(.topbar button).gz-race-go { font-size: 21px; padding: 19px; background: linear-gradient(135deg, #f97316, #ef4444 60%, #db2777); box-shadow: 0 14px 26px -12px rgba(239,68,68,.75); }
-  body.gz .gz-meet { border-left: 6px solid transparent; border-image: linear-gradient(180deg, #f97316, #db2777) 1; border-radius: var(--gz-r); }
-  body.gz .gz-meet.closed { border-image: linear-gradient(180deg, #a8a3bd, #a8a3bd) 1; }
+  body.gz main button:not(.back):not(.topbar button).gz-go { font-size: 18px; padding: 19px; background: #d9f99d; color: #0b0d14; box-shadow: 0 14px 26px -14px rgba(101,163,13,.8); }
+  body.gz main button:not(.back):not(.topbar button).gz-race-go { font-size: 18px; padding: 19px; background: linear-gradient(135deg, #ea580c, #dc2626); box-shadow: 0 14px 26px -12px rgba(239,68,68,.75); }
+  body.gz .gz-meet { box-shadow: inset 5px 0 0 #ea580c, 0 10px 30px -18px rgba(76,29,149,.45); }
+  body.gz .gz-meet.closed { box-shadow: inset 5px 0 0 #a8a3bd, 0 10px 30px -18px rgba(76,29,149,.3); }
   #print { display: none; }
   @media print {
     @page { size: A4; margin: 14mm 12mm 16mm; }
@@ -216,7 +214,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.8.0";
+const APP_VERSION = "0.8.1";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -1176,9 +1174,16 @@ function sensorText(s) {
   if (!s || !s.device) return t("sensor_none");
   return (s.device === "phone" ? t("sensor_phone") : s.name) + " · " + t("pos_" + s.location) + (s.battery ? ` · ${s.battery}%` : "");
 }
+const GZI = {                                         // line icons for the Skate screens (no emoji)
+  wheel: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="24" cy="24" r="19"/><circle cx="24" cy="24" r="6"/><path d="M24 5v8M24 35v8M5 24h8M35 24h8M10.6 10.6l5.7 5.7M31.7 31.7l5.7 5.7M37.4 10.6l-5.7 5.7M16.3 31.7l-5.7 5.7"/></svg>',
+  flag: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M10 44V5"/><path d="M10 7h30v20H10z"/><path d="M10 7h7.5v5H10zM25 7h7.5v5H25zM17.5 12H25v5h-7.5zM32.5 12H40v5h-7.5zM10 17h7.5v5H10zM25 17h7.5v5H25zM17.5 22H25v5h-7.5zM32.5 22H40v5h-7.5z" fill="currentColor" stroke="none"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="M16 10.5l6-3.5v10l-6-3.5z"/></svg>',
+  watch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="8"/><path d="M12 14V9.5M9.5 2h5M19 6.5l1.5-1.5"/></svg>',
+  note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+};
 function sensorBar() {
   const s = sensorNow(), on = !!s.device;
-  const top = on ? (s.device === "phone" ? "📱 " + t("sensor_phone") : "🛰️ " + s.name) + " · " + t("pos_" + s.location) : t("sensor_none");
+  const top = on ? (s.device === "phone" ? t("sensor_phone") : s.name) + " · " + t("pos_" + s.location) : t("sensor_none");
   const sub = on ? (s.battery ? T("gz_battery", { b: s.battery }) : T("gz_recording_motion")) : T("sensor_free_line");
   return `<div class="gz-sensor ${on ? "on" : ""}" id="sbar" onclick="go('sensor')"><span class="dot"></span>
     <span class="txt">${esc(top)}<small>${sub}</small></span><span class="go">${T("change")}</span></div>`;
@@ -1220,12 +1225,12 @@ screens.skate = () => {
   if (!k) return `${shellTop()}<h1>${T("skate_title")}</h1><div class="card meta">${T("squad_empty")}</div>`;
   const L = S.live, act = (S.events || []).filter(e => !e.closed && e.skater_id === k.id);
   return `${shellTop()}<p class="gz-hi">${T("gz_hi", { name: esc(k.display_name) })}</p><h1>${T("gz_ready")}</h1>${sensorBar()}
-  <div class="gz-hero practice" onclick="go('${L ? "live" : "practice"}')"><div class="emo">🛼</div><div class="ttl">${T("practice")}</div>
+  <div class="gz-hero practice" onclick="go('${L ? "live" : "practice"}')"><div class="ico">${GZI.wheel}</div><div class="ttl">${T("practice")}</div>
     <div class="sub2">${L ? T("practice_running", { min: Math.round((Date.now() - new Date(L.start)) / 6e4), rink: esc((S.rinks.find(r => r.id === L.rink_id) || {}).short || "") }) : T("practice_d")}</div>
-    <div class="pill">${L ? `<span class="live"></span>${T("gz_back_in")}` : T("gz_start_now")} →</div></div>
-  <div class="gz-hero race" onclick="go('races')"><div class="emo">🏁</div><div class="ttl">${T("race")}</div>
+    <div class="pill">${L ? `<span class="live"></span>${T("gz_back_in")}` : T("gz_start_now")}</div></div>
+  <div class="gz-hero race" onclick="go('races')"><div class="ico">${GZI.flag}</div><div class="ttl">${T("race")}</div>
     <div class="sub2">${act.length ? T("meets_active", { n: act.length, names: esc(act.map(e => e.name || t("race_event")).join(", ")) }) : T("race_d")}</div>
-    <div class="pill">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")} →</div></div>`;
+    <div class="pill">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")}</div></div>`;
 };
 screens.skate.init = () => { if (!SW.running) { SW.race = null; SW.practice = false; } wireWho(); };
 
@@ -1234,11 +1239,11 @@ screens.practice = () => {
   const k = currentSkater(); if (!k) { setTimeout(() => go("skate")); return ""; }
   if (S.live) { setTimeout(() => go("live")); return ""; }
   S.sensorBack = "practice";
-  return `${back("skate", "")}<p class="gz-hi">${T("gz_quick_check")}</p><h1>🛼 ${T("practice")}</h1>${sensorBar()}
+  return `${back("skate", "")}<p class="gz-hi">${T("gz_quick_check")}</p><h1>${T("practice")}</h1>${sensorBar()}
   ${S.skaters.length > 1 ? `<label for="pk">${T("who_skated")}</label><select id="pk">${S.skaters.map(x => `<option value="${x.id}" ${x.id === k.id ? "selected" : ""}>${esc(x.display_name)}</option>`).join("")}</select>` : `<p class="sub">${esc(k.display_name)}</p>`}
   <label for="pr">${T("rink")}</label>${rinkSelect("pr", lastOf(k.id, "rink_id") || S.rinks[0].id)}
   <label for="ps">${T("skate_setup")}</label>${setupSelect("ps", k, lastOf(k.id, "setup_id"))}
-  <div class="err" id="err"></div><button id="pgo" class="gz-go">🛼 ${T("start_practice")}</button>
+  <div class="err" id="err"></div><button id="pgo" class="gz-go">${T("start_practice")}</button>
   ${sensorNow().device ? "" : `<div class="hint">${T("free_practice_note")}</div>`}
   <p style="text-align:center;margin-top:18px"><a href="#manual" class="meta">${T("add_past_practice")}</a></p>`;
 };
@@ -1258,15 +1263,15 @@ screens.live = () => {
   const k = S.skaters.find(z => z.id === L.skater_id), r = S.rinks.find(z => z.id === L.rink_id);
   S.sensorBack = "live";
   const tl = [...L.items.map(i => ({ at: i.at, html: `<span class="badge">${T(i.kind === "race" ? "kind_race" : "kind_laps")}</span> ${i.total ? fmtLap(i.total) + " s" : ""}${(i.laps || []).length ? " · " + T("laps_n", { n: i.laps.length }) + " · " + T("best_lap") + " " + fmtLap(Math.min(...i.laps)) + " s" : ""}${i.source === "video" ? " · " + T("src_video") : ""}` })),
-              ...L.notes.map(n => ({ at: n.at, html: `📝 ${esc(n.text)}` })),
+              ...L.notes.map(n => ({ at: n.at, html: `<b>${T("act_note")}:</b> ${esc(n.text)}` })),
               ...L.changes.map(c => ({ at: c.at, html: c.setup_id ? T("changed_setup", { s: esc(setupLabel(setupOf(k, c.setup_id)) || "") }) : T("changed_sensor", { s: esc(sensorText(c.sensor)) }) }))]
               .sort((a, b) => b.at.localeCompare(a.at));
-  return `<p class="gz-hi">🛼 ${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
+  return `<p class="gz-hi">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
   <div class="gz-timer"><div class="lbl">● ${T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
-  <div class="gz-tiles"><button class="gz-tile v" id="lvid"><span class="e">🎥</span><span>${T("act_practice_race")}</span></button>
-    <button class="gz-tile l" id="llap"><span class="e">⏱️</span><span>${T("act_time_laps")}</span></button>
-    <button class="gz-tile n" id="lnote"><span class="e">📝</span><span>${T("act_note")}</span></button></div>
-  <div class="card" style="padding:10px 14px"><label for="lsu" style="margin-top:2px">🔧 ${T("skate_setup")}</label>${setupSelect("lsu", k, L.setup_id)}</div>
+  <div class="gz-tiles"><button class="gz-tile v" id="lvid">${GZI.cam}<span>${T("act_practice_race")}</span></button>
+    <button class="gz-tile l" id="llap">${GZI.watch}<span>${T("act_time_laps")}</span></button>
+    <button class="gz-tile n" id="lnote">${GZI.note}<span>${T("act_note")}</span></button></div>
+  <div class="card" style="padding:10px 14px"><label for="lsu" style="margin-top:2px">${T("skate_setup")}</label>${setupSelect("lsu", k, L.setup_id)}</div>
   <div id="noteform" hidden class="row"><input id="ntext" placeholder="${T("note_ph2")}"><button class="secondary" id="nadd" style="width:auto">${T("add")}</button></div>
   ${L.sensor && L.sensor.device ? "" : `<div class="hint">${T("free_practice_note")}</div>`}
   <h2>${T("so_far")}</h2><div class="card">${tl.length ? tl.map(x => `<div class="kv"><span>${x.html}</span><span class="meta">${esc(tod(x.at))}</span></div>`).join("") : `<div class="meta">${T("nothing_yet")}</div>`}</div>
@@ -1325,7 +1330,7 @@ function eventDays(e) { const d = [...new Set(e.races.map(x => x.day || e.date))
 function eventCard(e) {
   const r = S.rinks.find(z => z.id === e.rink_id), D = eventDays(e), mine = selfRaces(e);
   const res = mine.map(x => `${x.m} m${x.position ? " " + ord(x.position) : ""}`).join(" · ");
-  return `<div class="card tap gz-meet ${e.closed ? "closed" : ""}" data-ev="${e.id}"><span class="badge ${e.closed ? "" : "pro"}">${e.closed ? "✓ " : "● "}${T(e.closed ? "meet_closed" : "meet_active")}</span>
+  return `<div class="card tap gz-meet ${e.closed ? "closed" : ""}" data-ev="${e.id}"><span class="badge ${e.closed ? "" : "pro"}">${T(e.closed ? "meet_closed" : "meet_active")}</span>
     <b style="margin-left:6px">${esc(e.name || t("race_event"))}</b><div class="meta">${esc(r ? r.name : "")} · ${esc(dfmt(new Date(D[0] + "T12:00"), { day: "numeric", month: "short" }))}${D.length > 1 ? " – " + esc(dfmt(new Date(D.at(-1) + "T12:00"), { day: "numeric", month: "short" })) : ""} · ${T("races_n", { n: mine.length })}</div>
     ${res ? `<div class="meta">${esc(res)}</div>` : ""}</div>`;
 }
@@ -1342,7 +1347,7 @@ screens.races = () => {
   S.sensorBack = "races";
   const E = eventsFor(k).sort((a, b) => eventDays(b).at(-1).localeCompare(eventDays(a).at(-1)));
   const act = E.filter(e => !e.closed), past = E.filter(e => e.closed);
-  return `${back("skate", "")}<h1>🏁 ${T("race")}</h1>${sensorBar()}
+  return `${back("skate", "")}<h1>${T("race")}</h1>${sensorBar()}
   <h2>${T("meets_active_h")}</h2>${act.map(eventCard).join("") || `<div class="card meta">${T("no_active_meets")}</div>`}
   <div class="row"><button class="gz-race-go" style="font-size:17px" onclick="S.raceAddPast=false;go('raceadd')">${T("new_meet")}</button><button class="secondary" onclick="S.raceAddPast=true;go('raceadd')">${T("past_meet")}</button></div>
   <h2>${T("meets_closed_h")}</h2>${past.map(eventCard).join("") || `<div class="card meta">${T("no_races_yet")}</div>`}`;
@@ -1382,7 +1387,7 @@ screens.race = () => {
       <span>${x.position ? ord(x.position) + " · " : ""}${raceTime(x) ? fmtRT(raceTime(x)) : "–"}</span></div>`; };
   return `${back("races", "")}<h1>${esc(e.name || t("race_event"))}</h1>
   <p class="sub">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")} · ${esc(su ? setupLabel(su) : t("setup_unknown"))}${e.closed ? ` · <span class="badge">${T("meet_closed")}</span>` : ""}</p>
-  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go">🏁 ${T("start_race")}</button>
+  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go">${T("start_race")}</button>
   <p style="text-align:center"><a href="#" id="rmanual" class="meta">${T("add_race_by_hand")}</a></p>`}
   ${days.map(d => { const R = e.races.filter(x => (x.day || e.date) === d).sort((a, b) => ((a.timing && a.timing.at) || "").localeCompare((b.timing && b.timing.at) || ""));
     return `<h2>${esc(dfmt(new Date(d + "T12:00"), { weekday: "long", day: "numeric", month: "short" }))}</h2><div class="card">${R.map(row).join("") || `<div class="meta">${T("no_races_day")}</div>`}</div>`; }).join("")}
@@ -1416,7 +1421,7 @@ screens.racestart = () => {
   <label>${T("who_racing")}</label><div class="seg" id="rsw"><button type="button" data-v="self" class="${f.who === "self" ? "on" : ""}">${esc(k ? k.display_name : "")}</button><button type="button" data-v="other" class="${f.who === "other" ? "on" : ""}">${T("someone_else")}</button></div>
   ${f.who === "other" ? `<input id="rsl" placeholder="${T("other_label_ph")}" value="${esc(f.label || "")}"><div class="hint">${T("field_note")}</div>` : ""}
   <label>${T("timing_how")}</label><div class="seg" id="rsv"><button type="button" data-v="video" class="${f.method === "video" ? "on" : ""}">${T("with_video")}</button><button type="button" data-v="sw" class="${f.method === "sw" ? "on" : ""}">${T("without_video")}</button></div>
-  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go">🎬 ${T("open_recorder")}</button>`;
+  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go">${T("open_recorder")}</button>`;
 };
 screens.racestart.init = () => {
   const f = S.rsForm; if (!$("#rsgo")) return;
