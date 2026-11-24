@@ -16,10 +16,8 @@
     --nav: #E6EBF4; --sec-bg: #D9E0EE; --sec-line: #B9C3D9;
     --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0A0E1A; --card: #223148; --ink: #F2F2F7; --muted: #BAC3D3; --line: #36496E; --soft: #36496E; --link: #5CE1FF; --ring: #5CE1FF;
-            --warn-bg: #3A2A12; --warn-ink: #F8C98A; --ok: #D4F53C; --danger: #FF8A7A; --nav: #0F1526; --sec-bg: #36496E; --sec-line: #6F82A8; }
-  }
+  html:not(.light) { --bg: #0A0E1A; --card: #223148; --ink: #F2F2F7; --muted: #BAC3D3; --line: #36496E; --soft: #36496E; --link: #5CE1FF; --ring: #5CE1FF;
+            --warn-bg: #3A2A12; --warn-ink: #F8C98A; --ok: #D4F53C; --danger: #FF8A7A; --nav: #0F1526; --sec-bg: #36496E; --sec-line: #6F82A8; color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--ink);
@@ -106,7 +104,7 @@
   .timer { font-family: var(--display); font-size: 64px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; margin: 10px 0 4px; }
   .laps { max-height: 240px; overflow-y: auto; }
   .lapline { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-  .lapline.best { color: var(--ok); font-weight: 700; } @media (prefers-color-scheme: light) { .lapline.best { color: var(--accent); } }
+  .lapline.best { color: var(--ok); font-weight: 700; } html.light .lapline.best { color: var(--accent); }
   .plancard { display: flex; gap: 12px; align-items: center; }
   .plancard .date { flex: 0 0 52px; text-align: center; background: var(--soft); border-radius: 10px; padding: 6px 0; }
   .plancard .date b { display: block; font-size: 18px; } .plancard .date span { font-size: 11px; color: var(--muted); text-transform: uppercase; }
@@ -128,42 +126,32 @@
   body.gz .card { border-radius: 20px; }
   body.gz .chip.on { background: var(--accent); color: #fff; }
   body.gz .badge { border-radius: 8px; font-weight: 800; }
-  /* Motif rule: anything that is a RACE (practice race or competition) gets lapped lanes around it; anything that is PRACTICE gets sloped cross stripes over its right 20% */
-  .lapped { position: relative; overflow: hidden; isolation: isolate; --lr: 22px; }
-  .lapped > .lane { position: absolute; pointer-events: none; z-index: -1; border: 3px solid transparent; }
-  .lapped > .lane.l1 { inset: 7px; border-radius: calc(var(--lr) - 7px); border-top-color: var(--rink); border-right-color: var(--rink); border-bottom-color: var(--rink); }
-  .lapped > .lane.l2 { inset: 13px; border-radius: calc(var(--lr) - 13px); border-top-color: var(--cyan); border-right-color: var(--cyan); }
-  .lapped > .lane.l3 { inset: 19px; border-radius: calc(var(--lr) - 19px); border-right-color: var(--lime); border-bottom-color: var(--lime); }
-  .lapped.dim > .lane { opacity: .35; }
+  /* Motif rule: anything that is a RACE (practice race or competition) gets the three-lane track drawn in its right zone; anything that is PRACTICE gets sloped cross stripes over its right 20% */
+  .raced { position: relative; overflow: hidden; isolation: isolate; }
+  .raced > .gz-lanes { position: absolute; right: 6%; top: 11%; height: 78%; width: auto; z-index: -1; pointer-events: none; }
+  .raced.dim > .gz-lanes { opacity: .4; }
   .striped { position: relative; overflow: hidden; isolation: isolate; }
   .striped::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 20%; z-index: -1; pointer-events: none;
                     background: linear-gradient(104deg, transparent 0 24%, var(--rink) 24% 52%, var(--cyan) 52% 76%, var(--lime) 76% 100%); }
-  .gz-racebox { background: var(--surface); color: #F2F2F7; border-radius: 22px; padding: 28px 30px; margin: 10px 0; text-align: center; }
+  .gz-racebox { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 22px 22% 22px 16px; margin: 10px 0; text-align: center; }
   .gz-pracbox { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 22px 22% 22px 16px; margin: 10px 0; text-align: center; }
   .gz-racebox .timer, .gz-pracbox .timer { margin: 0; }
   /* sensor strip */
   .gz-sensor { display: flex; align-items: center; gap: 10px; padding: 11px 14px 11px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line);
                cursor: pointer; margin: 2px 0 16px; font-weight: 700; }
   .gz-sensor .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: 0 0 10px; }
-  @media (prefers-color-scheme: light) { .gz-sensor.on .dot, .gz-hero .pill .live { box-shadow: inset 0 0 0 1.5px #8FAF1E; } }
+  html.light .gz-sensor.on .dot { box-shadow: inset 0 0 0 1.5px #8FAF1E; }
   .gz-sensor.on .dot { background: var(--lime); animation: gzpulse 1.8s infinite; }
   .gz-sensor .txt { flex: 1; line-height: 1.2; } .gz-sensor .txt small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
   .gz-sensor .go { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--link); border: 1.5px solid var(--line); padding: 5px 10px; border-radius: 10px; }
   @keyframes gzpulse { 0% { box-shadow: 0 0 0 0 rgba(212,245,60,.55); } 70% { box-shadow: 0 0 0 9px rgba(212,245,60,0); } 100% { box-shadow: 0 0 0 0 rgba(212,245,60,0); } }
   /* the two big choices */
-  .gz-hero { position: relative; overflow: hidden; border-radius: 22px; padding: 22px 20px 22px; margin: 14px 0; color: #F2F2F7; cursor: pointer; min-height: 164px;
-             background: var(--section); transition: transform .15s ease; isolation: isolate; }
-  .gz-hero:active { transform: scale(.98); }
-  .gz-hero.race { background: var(--surface); padding: 30px 34px 28px; }
-  .gz-hero.race .ico { right: 38px; top: 34px; color: rgba(242,242,247,.7); }
-  .gz-hero.practice .ico { display: none; }
-  .gz-hero .ico { position: absolute; right: 18px; top: 18px; width: 56px; height: 56px; color: var(--muted); }
-  .gz-hero .ttl { font-family: var(--display); font-size: 44px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: -.01em; line-height: .95; }
-  .gz-hero .sub2 { margin-top: 8px; font-weight: 500; font-size: 14px; opacity: .85; max-width: 72%; }
-  .gz-hero .pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; background: var(--rink); color: #fff; border: 1px solid rgba(255,255,255,.35);
-                   outline: 1.5px solid var(--cyan); outline-offset: 3px; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
-  .gz-hero.race .pill { background: transparent; color: #F2F2F7; border: 1.5px solid rgba(242,242,247,.55); outline: 0; }
-  .gz-hero .pill .live { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); animation: gzpulse 1.6s infinite; }
+  .gz-hero { position: relative; overflow: hidden; border-radius: 22px; padding: 20px 24% 20px 20px; margin: 14px 0; color: #F2F2F7; background: var(--section); isolation: isolate; }
+  .gz-hero .kick { font-size: 11.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--cyan); }
+  .gz-hero .ttl { font-family: var(--display); font-size: 46px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: -.01em; line-height: .95; margin-top: 4px; }
+  .gz-hero .sub2 { margin-top: 8px; font-weight: 500; font-size: 14px; color: #C9D1E3; }
+  body.gz main .gz-hero button.gz-cta { width: auto; margin: 18px 0 2px 3px; padding: 12px 20px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: .08em; }
+  .gz-cta .live { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); animation: gzpulse 1.6s infinite; }
   .gz-hi { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
   /* running practice: timer inside the three-lane track */
   .gz-timer { text-align: center; border-radius: 22px; padding: 18px 20% 18px 10px; margin: 8px 0 14px; color: #F2F2F7; background: var(--section);
@@ -174,12 +162,12 @@
   body.gz main button.gz-tile { border-radius: 16px; padding: 15px 14px; min-height: 96px; font-weight: 600; font-size: 15px; text-transform: none; letter-spacing: 0; line-height: 1.15; text-align: left;
              display: flex; flex-direction: column; justify-content: space-between; margin: 0; background: var(--sec-bg); color: var(--ink); border: 1.5px solid var(--sec-line); outline: 0; }
   .gz-tile svg { width: 26px; height: 26px; }
-  body.gz main button.gz-tile.v { grid-column: 1 / 3; min-height: 88px; padding: 24px 32px; --lr: 16px; background: var(--surface); color: #F2F2F7; border: 0; outline: 1.5px solid var(--ring); outline-offset: 3px;
+  body.gz main button.gz-tile.v { grid-column: 1 / 3; min-height: 76px; padding: 18px 26% 18px 18px; background: var(--section); color: #F2F2F7; border: 0; outline: 1.5px solid var(--ring); outline-offset: 3px;
              flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
   body.gz main button.gz-stop { background: transparent; color: var(--signal); border: 1.5px solid var(--signal); outline: 1px solid rgba(242,146,58,.4); outline-offset: 3px; font-size: 16px; padding: 16px; }
   body.gz main button.gz-go { font-size: 17px; padding: 18px; }
-  body.gz main button.gz-race-go { font-size: 17px; padding: 24px 30px; --lr: 14px; background: var(--surface); color: #F2F2F7; border: 0; }
-  body.gz .gz-meet { --lr: 20px; background: var(--surface); color: #F2F2F7; border: 0; padding: 26px 32px 24px; }
+  body.gz main button.gz-race-go { font-size: 17px; padding: 18px; }
+  body.gz .gz-meet { background: var(--section); color: #F2F2F7; border: 0; border-radius: 20px; padding: 16px 24% 16px 16px; }
   body.gz .gz-meet .meta { color: #C9D1E3; }
   #print { display: none; }
   @media print {
@@ -641,7 +629,7 @@ screens.stopwatch = () => {
   const open = S.sessions.filter(x => x.source === "stopwatch" && (Date.now() - new Date(x.end)) < WINDOW_H * 36e5).sort((a, b) => b.end.localeCompare(a.end))[0];
   const rc = SW.race && (S.events || []).find(z => z.id === SW.race.eid), rr = rc && rc.races.find(z => z.id === SW.race.rid);
   if (rr || SW.practice) return `${back(rr ? "race" : "live", "")}<h1>${rr ? esc(raceLabel(rr)) : T("act_time_laps")}</h1><p class="sub">${rr ? esc(rr.who === "other" ? (rr.other_label || t("someone_else")) : (rc.name || "")) + " · " : ""}${T("race_timing_d")}</p>
-  <div class="${rr ? "gz-racebox lapped" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
+  <div class="${rr ? "gz-racebox raced" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
   <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_save")}</button>` : `<button id="go">${T("sw_start")}</button>`}</div>
   <div class="laps card">${SW.laps.map((l, i) => `<div class="lapline ${i === bestI ? "best" : ""}"><span>${T("lap_n", { n: i + 1 })}</span><span>${fmtLap(l)} s</span></div>`).reverse().join("") || `<div class="meta">${T("race_timing_hint")}</div>`}</div>`;
@@ -1214,19 +1202,23 @@ screens.sensor.init = () => {
 };
 
 // ---------------------------------------------------------------- Skate: two choices
-const LANES = `<i class="lane l1"></i><i class="lane l2"></i><i class="lane l3"></i>`;
+const LANES = (() => {                                // race motif: three lanes of an oval track, different lengths
+  const L = [["#2A64C5", 78], ["#5CE1FF", 56], ["#D4F53C", 34]]; let o = "";
+  L.forEach(([c, n], i) => { const x = 4 + i * 10, w = 72 - 2 * x, h = 132 - 2 * x, r = w / 2;   // upright oval, fills the right zone like the practice stripes
+    o += `<rect x="${x}" y="${x}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="#4B5D83" stroke-width="6"/><rect x="${x}" y="${x}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="${c}" stroke-width="6" stroke-linecap="round" pathLength="100" stroke-dasharray="${n} 100"/>`; });
+  return `<svg class="gz-lanes" viewBox="0 0 72 132" aria-hidden="true">${o}</svg>`; })();
 screens.skate = () => {
   const k = currentSkater(); S.sensorBack = "skate";
   if (role() === "coach") return `${shellTop()}<h1>${T("skate_title")}</h1><div class="card"><b>${T("coach_sw")}</b><div class="meta">${T("coach_sw_d")}</div></div>`;
   if (!k) return `${shellTop()}<h1>${T("skate_title")}</h1><div class="card meta">${T("squad_empty")}</div>`;
   const L = S.live, act = (S.events || []).filter(e => !e.closed && e.skater_id === k.id);
   return `${shellTop()}<p class="gz-hi">${T("gz_hi", { name: esc(k.display_name) })}</p><h1>${T("gz_ready")}</h1>${sensorBar()}
-  <div class="gz-hero practice striped" onclick="go('${L ? "live" : "practice"}')"><div class="ico">${GZI.wheel}</div><div class="ttl">${T("practice")}</div>
+  <div class="gz-hero practice striped">${L ? `<div class="kick">${T("gz_on_track")}</div>` : ""}<div class="ttl">${T("practice")}</div>
     <div class="sub2">${L ? T("practice_running", { min: Math.round((Date.now() - new Date(L.start)) / 6e4), rink: esc((S.rinks.find(r => r.id === L.rink_id) || {}).short || "") }) : T("practice_d")}</div>
-    <div class="pill">${L ? `<span class="live"></span>${T("gz_back_in")}` : T("gz_start_now")}</div></div>
-  <div class="gz-hero race lapped" onclick="go('races')">${LANES}<div class="ico">${GZI.flag}</div><div class="ttl">${T("race")}</div>
+    <button class="gz-cta" onclick="go('${L ? "live" : "practice"}')">${L ? `<span class="live"></span>${T("gz_back_in")}` : T("gz_start_now")}</button></div>
+  <div class="gz-hero race raced">${LANES}${act.length ? `<div class="kick">${T("meet_active")}</div>` : ""}<div class="ttl">${T("race")}</div>
     <div class="sub2">${act.length ? T("meets_active", { n: act.length, names: esc(act.map(e => e.name || t("race_event")).join(", ")) }) : T("race_d")}</div>
-    <div class="pill">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")}</div></div>`;
+    <button class="gz-cta" onclick="go('races')">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")}</button></div>`;
 };
 screens.skate.init = () => { if (!SW.running) { SW.race = null; SW.practice = false; } wireWho(); };
 
@@ -1264,7 +1256,7 @@ screens.live = () => {
               .sort((a, b) => b.at.localeCompare(a.at));
   return `<p class="gz-hi">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
   <div class="gz-timer striped"><div class="lbl">● ${T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
-  <div class="gz-tiles"><button class="gz-tile v lapped" id="lvid">${LANES}${GZI.cam}<span>${T("act_practice_race")}</span></button>
+  <div class="gz-tiles"><button class="gz-tile v raced" id="lvid">${LANES}${GZI.cam}<span>${T("act_practice_race")}</span></button>
     <button class="gz-tile l" id="llap">${GZI.watch}<span>${T("act_time_laps")}</span></button>
     <button class="gz-tile n" id="lnote">${GZI.note}<span>${T("act_note")}</span></button></div>
   <div class="card" style="padding:10px 14px"><label for="lsu" style="margin-top:2px">${T("skate_setup")}</label>${setupSelect("lsu", k, L.setup_id)}</div>
@@ -1326,7 +1318,7 @@ function eventDays(e) { const d = [...new Set(e.races.map(x => x.day || e.date))
 function eventCard(e) {
   const r = S.rinks.find(z => z.id === e.rink_id), D = eventDays(e), mine = selfRaces(e);
   const res = mine.map(x => `${x.m} m${x.position ? " " + ord(x.position) : ""}`).join(" · ");
-  return `<div class="card tap gz-meet lapped ${e.closed ? "closed dim" : ""}" data-ev="${e.id}">${LANES}<span class="badge ${e.closed ? "" : "pro"}">${T(e.closed ? "meet_closed" : "meet_active")}</span>
+  return `<div class="card tap gz-meet raced ${e.closed ? "closed dim" : ""}" data-ev="${e.id}">${LANES}<span class="badge ${e.closed ? "" : "pro"}">${T(e.closed ? "meet_closed" : "meet_active")}</span>
     <b style="margin-left:6px">${esc(e.name || t("race_event"))}</b><div class="meta">${esc(r ? r.name : "")} · ${esc(dfmt(new Date(D[0] + "T12:00"), { day: "numeric", month: "short" }))}${D.length > 1 ? " – " + esc(dfmt(new Date(D.at(-1) + "T12:00"), { day: "numeric", month: "short" })) : ""} · ${T("races_n", { n: mine.length })}</div>
     ${res ? `<div class="meta">${esc(res)}</div>` : ""}</div>`;
 }
@@ -1345,7 +1337,7 @@ screens.races = () => {
   const act = E.filter(e => !e.closed), past = E.filter(e => e.closed);
   return `${back("skate", "")}<h1>${T("race")}</h1>${sensorBar()}
   <h2>${T("meets_active_h")}</h2>${act.map(eventCard).join("") || `<div class="card meta">${T("no_active_meets")}</div>`}
-  <div class="row"><button class="gz-race-go lapped" style="font-size:17px" onclick="S.raceAddPast=false;go('raceadd')">${LANES}${T("new_meet")}</button><button class="secondary" onclick="S.raceAddPast=true;go('raceadd')">${T("past_meet")}</button></div>
+  <div class="row"><button class="gz-race-go" style="font-size:17px" onclick="S.raceAddPast=false;go('raceadd')">${T("new_meet")}</button><button class="secondary" onclick="S.raceAddPast=true;go('raceadd')">${T("past_meet")}</button></div>
   <h2>${T("meets_closed_h")}</h2>${past.map(eventCard).join("") || `<div class="card meta">${T("no_races_yet")}</div>`}`;
 };
 screens.races.init = wireEvents;
@@ -1383,7 +1375,7 @@ screens.race = () => {
       <span>${x.position ? ord(x.position) + " · " : ""}${raceTime(x) ? fmtRT(raceTime(x)) : "–"}</span></div>`; };
   return `${back("races", "")}<h1>${esc(e.name || t("race_event"))}</h1>
   <p class="sub">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")} · ${esc(su ? setupLabel(su) : t("setup_unknown"))}${e.closed ? ` · <span class="badge">${T("meet_closed")}</span>` : ""}</p>
-  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go lapped">${LANES}${T("start_race")}</button>
+  ${e.closed ? "" : `${sensorBar()}<button id="rstart" class="gz-race-go">${T("start_race")}</button>
   <p style="text-align:center"><a href="#" id="rmanual" class="meta">${T("add_race_by_hand")}</a></p>`}
   ${days.map(d => { const R = e.races.filter(x => (x.day || e.date) === d).sort((a, b) => ((a.timing && a.timing.at) || "").localeCompare((b.timing && b.timing.at) || ""));
     return `<h2>${esc(dfmt(new Date(d + "T12:00"), { weekday: "long", day: "numeric", month: "short" }))}</h2><div class="card">${R.map(row).join("") || `<div class="meta">${T("no_races_day")}</div>`}</div>`; }).join("")}
@@ -1417,7 +1409,7 @@ screens.racestart = () => {
   <label>${T("who_racing")}</label><div class="seg" id="rsw"><button type="button" data-v="self" class="${f.who === "self" ? "on" : ""}">${esc(k ? k.display_name : "")}</button><button type="button" data-v="other" class="${f.who === "other" ? "on" : ""}">${T("someone_else")}</button></div>
   ${f.who === "other" ? `<input id="rsl" placeholder="${T("other_label_ph")}" value="${esc(f.label || "")}"><div class="hint">${T("field_note")}</div>` : ""}
   <label>${T("timing_how")}</label><div class="seg" id="rsv"><button type="button" data-v="video" class="${f.method === "video" ? "on" : ""}">${T("with_video")}</button><button type="button" data-v="sw" class="${f.method === "sw" ? "on" : ""}">${T("without_video")}</button></div>
-  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go lapped">${LANES}${T("open_recorder")}</button>`;
+  <div class="err" id="err"></div><button id="rsgo" class="gz-race-go">${T("open_recorder")}</button>`;
 };
 screens.racestart.init = () => {
   const f = S.rsForm; if (!$("#rsgo")) return;
@@ -1656,6 +1648,8 @@ screens.settings = () => {
     ${k === "coach" ? `<div class="hint">${T("coach_total", { n: S.skaters.length, total: money(PRICES.coach * S.skaters.length) })}</div>` : ""}
     ${S.plan === k ? `<div class="hint"><b>${T("current")}</b></div>` : `<button class="small secondary" style="margin-top:10px" data-plan="${k}">${T("switch_proto")}</button>`}</div>`).join("")}
   <h2>${T("sensors_section")}</h2><div class="card meta">${T("no_sensors")}</div>
+  <h2>${T("appearance")}</h2>
+  <div class="seg" id="theme">${[["dark", "theme_dark"], ["light", "theme_light"]].map(([k, l]) => `<button type="button" data-v="${k}" class="${(S.settings.theme || "dark") === k ? "on" : ""}">${T(l)}</button>`).join("")}</div>
   <h2>${T("units_setting")}</h2>
   <div class="seg" id="units">${[["metric", "units_metric"], ["imperial", "units_imperial"]].map(([k, l]) => `<button type="button" data-v="${k}" class="${S.settings.units === k ? "on" : ""}">${T(l)}</button>`).join("")}</div>
   <h2>${T("language")}</h2>
@@ -1675,6 +1669,7 @@ screens.settings = () => {
 };
 screens.settings.init = () => {
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => { S.plan = b.dataset.plan; persist(); render(); toast(t("saved")); });
+  $("#theme").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.settings.theme = b.dataset.v; persist(); render(); toast(t("saved")); };
   $("#units").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.settings.units = b.dataset.v; persist(); render(); toast(t("saved")); };
   $("#lang").onchange = e => { LANG = e.target.value; S.settings.lang = LANG; persist(); render(); };
   if ($("#research")) $("#research").onchange = e => { S.consent.research = e.target.checked; S.consent.research_changed_at = new Date().toISOString(); persist(); toast(t("saved")); };
@@ -1828,6 +1823,7 @@ screens.club.init = () => {
 const OPEN = ["welcome", "phone", "otp"];
 const SHELL = ["home", "plan", "skate", "insights", "learn", "club"];
 function render() {
+  document.documentElement.classList.toggle("light", !!(S.settings && S.settings.theme === "light"));
   document.documentElement.lang = LANG;
   $("#proto").textContent = t("proto_banner");
   let r = (location.hash || "#").slice(1) || nextRoute();
