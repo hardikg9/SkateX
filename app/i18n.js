@@ -724,3 +724,19 @@ Object.assign(window.SL_I18N.en, {
   no_setups: "No setups yet.", not_used: "Not used yet", add_setup: "Add setup",
   setups_hint: "Compare times on different wheels and bearings from any best-lap chart."
 });
+Object.assign(SL_I18N.en, {                          // v0.10: session score, week highlights, gear page, pause, meets, plan
+  score: "Score", session_score: "Session score", avg_score: "avg score", pbs_week: "PBs this week",
+  score_how: "Speed against your best here, steady laps, amount of work and progress on your average.",
+  pb_line: "Fastest lap ever at this rink: {v} s",
+  sc_speed: "Speed", sc_steady: "Steady laps", sc_volume: "Work done", sc_progress: "Progress",
+  cheer_start: "New week, fresh start", cheer_great: "Great week so far", cheer_busy: "Strong, busy week", cheer_good: "Good week so far",
+  focus_week: "Focus this week",
+  adv_crossover: "Work on your crossover cadence: quick, short crossovers through the bends keep your speed up.",
+  adv_steady: "Hold an even rhythm: aim for laps within 0.3 s of each other in your main set.",
+  adv_volume: "Add one more session or a longer main set: more laps build race fitness.",
+  adv_rest: "Rest well before the next session: fresh legs give your fastest laps.",
+  gear: "Gear", gear_d: "Skate setup and sensor for what you do next.",
+  pause: "Pause", resume: "Resume", stop: "Stop", paused: "Paused",
+  races_word: "races", best_place: "best place", meet_many_races: "A meet can have many races over one or more days. Add each race when it happens.",
+  next_up: "Next up", tomorrow: "Tomorrow", in_days: "In {n} days", recent_sessions: "Recent sessions"
+});
