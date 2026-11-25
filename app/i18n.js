@@ -770,3 +770,9 @@ Object.assign(SL_I18N.en, {                          // v0.13 insights
   ins_recs_h: "Recommendations", ins_next: "Look for next session",
   ins_proto_note: "Prototype: insights from the 24 Nov VN practice, analysed from the raw recording. Lap times are measured from the bends, good to about 0.5 s. Badges show the plan each insight would need."
 });
+Object.assign(SL_I18N.en, {                          // v0.14 profile
+  ins_profile_h: "Best profile · {rink}", ins_profile_d: "What {name}'s best in each part of a race adds up to, from {from}. It rises as any part improves.",
+  ins_ideal: "Ideal lap {v} s (best shorter + best longer half-lap). Big numbers: potential standing-start time, with today's PB and the gap.",
+  ins_profile_more: "Segment bests", ins_vs_h: "Against his best profile",
+  live_vs_ideal: "Average lap {a} s · {p}% of ideal-lap pace"
+});

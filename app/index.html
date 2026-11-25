@@ -250,6 +250,12 @@
   table.mt { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; } table.mt th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 700; padding: 4px 4px 6px; }
   table.mt td { padding: 6px 4px; border-top: 1px solid var(--line); } table.mt td.chg { color: var(--muted); font-size: 12px; } table.mt b.up2 { color: var(--lime); }
   ol.recs { margin: 0; padding-left: 20px; } ol.recs li { margin: 6px 0; font-size: 14px; } ol.recs li::marker { color: var(--cyan); font-weight: 800; }
+  .capgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cap { background: var(--midnight); border: 1px solid var(--line); border-radius: 14px; padding: 9px 10px; display: flex; flex-direction: column; gap: 1px; }
+  .cap .l { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); } .cap b { font-family: var(--display); font-size: 24px; line-height: 1.05; }
+  .cap .gap { font-size: 11.5px; font-weight: 700; color: var(--lime); }
+  .pc { height: 4px; border-radius: 2px; background: var(--midnight); margin: 3px 0 1px; overflow: hidden; } .pc i { display: block; height: 100%; }
+  table.mt b.dn2 { color: var(--signal); }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -299,7 +305,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.13";
+const APP_VERSION = "0.14";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -1529,7 +1535,7 @@ function liveAuto(L, run) {
       + A.groups.slice().reverse().map((g, i) => { const tt = g.laps.reduce((p, x) => p + x.t, 0), gb = Math.min(...g.laps.map(x => x.t)), n = A.groups.length - i;
         return `<div class="lrow ${fresh && i === 0 && !A.cur.length ? "new" : ""}"><div class="pos ${g.laps.some(x => x.pb) ? "pod" : ""}" style="flex-basis:38px;height:38px;font-size:15px">${g.laps.length >= 2 ? "R" + A.groups.filter((x, j) => j < n && x.laps.length >= 2).length : "L"}</div>
           <div class="mid"><b>${g.laps.length >= 2 ? T("live_prace", { n: g.laps.length, m: g.laps.length * m }) : T("live_single")}</b> <span class="meta">${mmss(g.laps[0].s - g.laps[0].t)}</span>
-          <div>${g.laps.map(chip).join("")}</div></div><div class="tm" style="font-family:var(--display);font-size:20px;font-weight:700">${fmtRT(tt)}</div></div>`; }).join("");
+          <div>${g.laps.map(chip).join("")}</div>${(() => { const P = PROFILES[L.rink_id]; if (!P || g.laps.length < 2) return ""; const av = tt / g.laps.length; return `<div class="meta" style="margin-top:4px">${T("live_vs_ideal", { a: fmtLap(av), p: Math.round(P.ideal / av * 100) })}</div>`; })()}</div><div class="tm" style="font-family:var(--display);font-size:20px;font-weight:700">${fmtRT(tt)}</div></div>`; }).join("");
   };
   const newT = () => +(typ * (A.cur.length ? 1 : 1.12) + (Math.random() - .45) * 1.6 + A.cur.length * .35).toFixed(2);
   const step = () => {
@@ -1870,6 +1876,13 @@ screens.planadd.init = () => {
 // ================================================================ Insights, Learn
 // Insights from an analysed session. For now the analysis is done off the app (from the raw recording) and published here;
 // the prototype carries the 24 Nov VN practice. The plan badges show which tier each insight would sit in.
+// Best-performance profile per skater and rink (built off the app from all analysed sessions; rebuilt after each one).
+const PROFILES = { vn: {
+  rink: "vn", built: "2026-11-24", from: "17, 21 and 24 Nov",
+  segs: [["Start: pushes 1 and 2", "1.07 g", "17 Nov"], ["Start: pushes 3 to 6", "1.03 g", "24 Nov"], ["Start: six pushes in", "1.69 s", "17 and 21 Nov"],
+         ["Shorter half-lap", "10.4 s", "21 and 24 Nov"], ["Longer half-lap", "10.85 s", "21 and 24 Nov"], ["Crossover push", "0.95 g", "top 10%"], ["Crossover rhythm", "145/min", "top 10%"],
+         ["Straight push", "1.26 g", "top 10%"], ["Straight rhythm", "118/min", "top 10%"], ["Best 2 laps in a row", "21.9 s avg", "24 Nov"], ["Best 4 laps in a row", "22.3 s avg", "24 Nov"]],
+  ideal: 21.25, cap: [[200, 23.5, 24.45], [600, 67.2, 70.9], [1000, 112.8, 118.9]] } };
 const ANALYSED = [{
   id: "vn-2026-11-24", rink: "vn", date: "2026-11-24", title: "VN practice", start: "9:17 pm", mins: 84, score: 80,
   parts: { speed: 100, attack: 55, steady: 44, volume: 100, progress: 100 },
@@ -1890,6 +1903,17 @@ const ANALYSED = [{
   recs: [["Even out the 1000 m", "Lap 2 averaged 22.0 s, lap 5 23.7 s. Aim for every lap at about 22.5 s, holding 115+ pushes per minute."], ["Keep the long push", "44 pushes per lap is the new standard. When tired, push more often, not shorter."],
          ["Train the last two laps", "Push strength fell 13% by lap 5. Add 2-lap finishes at the end of sets."], ["Sharpen the first five pushes", "Start early in the session, aim for 14+ pushes in the first 5 s."], ["Confirm the best lap", "Time a flying lap with taps to make 21.5 s official."]],
   next: "Lap 5 within 0.8 s of lap 2 · 44 pushes per lap or fewer · 14+ pushes in the first 5 s of the first start"
+}, {
+  id: "bh-2026-11-22", kind: "race", rink: "bh", vsRink: "vn", date: "2026-11-22", title: "FST races", start: "12:20 pm", mins: 35,
+  head2: [["4th", "500 m"], ["1:05.1", "time"], ["4th", "1000 m"], ["2:11.7", "time"]],
+  vs: { cols: ["Best (VN)", "500 m", "1000 m"], rows: [["Start: pushes 1–2", "1.07 g", ["0.82 g", 77], ["0.39 g", 36]], ["Start: pushes 3–6", "1.03 g", ["0.51 g", 50], ["0.84 g", 82]],
+        ["Start: six pushes", "1.69 s", ["1.99 s", 85], ["2.18 s", 78]], ["Crossover push", "0.95 g", ["0.96 g", 101], ["0.66 g", 70]], ["Crossover rhythm", "145/min", ["133", 92], ["130", 90]],
+        ["Straight push", "1.26 g", ["1.08 g", 86], ["0.96 g", 76]], ["Straight rhythm", "118/min", ["101", 86], ["97", 82]]] },
+  vsNote: "Push strength and rhythm compare across rinks. Half-lap times were 0.6 to 1.3 s slower than at VN in the 500 m even with crossovers at full strength: grip on the worn track.",
+  starts: [["500 m", "pushes 1–2 normal, 3–6 soft", 0, 0], ["1000 m", "first two pushes softest on record", 0, 0]],
+  recs: [["Drive off the grid", "All six first pushes at full strength; time them in every practice start."], ["1000 m race plan", "Don't lead slowly: sit 2nd, or hold about 25 s laps."],
+         ["Defend lap 3", "Hold the inside line and lift the pace before the pass."], ["Split finish", "Every timed effort ends with a split at the line."]],
+  next: "Pushes 3 to 6 above 0.8 g in every start · no lap slower than 26 s while leading"
 }];
 function insLapChart(A) {                              // every lap of the session against the minute it was skated; faster is higher
   const W = 340, H = 170, x0 = 34, y0 = 12, w = W - x0 - 8, h = H - y0 - 24, lo = 21, hi = 33, pb = 21.8;
@@ -1908,6 +1932,15 @@ function insFadeChart(F) {
     <polyline fill="none" stroke="#5CE1FF" stroke-width="3" stroke-linejoin="round" points="${F.laps.map((v, i) => X(i) + "," + Y(v)).join(" ")}"/>
     ${F.laps.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#5CE1FF"/><text x="${X(i)}" y="${Y(v) + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="#F2F2F7">${v.toFixed(1)}</text><text x="${X(i)}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#93A0B8">lap ${i + 2}</text>`).join("")}</svg>`;
 }
+function profileCard(P, A) {                          // the skater's bests at this rink and what they add up to
+  if (!P) return "";
+  const r = S.rinks.find(z => z.id === P.rink);
+  return `<div class="card ins"><div class="insh"><b>${T("ins_profile_h", { rink: esc(r ? r.short : "") })}</b><span class="badge pro">${T("needs_pro")}</span></div>
+    <p class="meta" style="margin:0 0 8px">${T("ins_profile_d", { from: P.from, name: esc((currentSkater() || {}).display_name || "") })}</p>
+    <div class="capgrid">${P.cap.map(([m, pot, pb]) => `<div class="cap"><span class="l">${m} m</span><b>${m >= 600 ? fmtLap(pot) : pot.toFixed(1)}</b><span class="meta">PB ${m >= 600 ? fmtLap(pb) : pb}</span><span class="gap">−${(pb - pot).toFixed(1)} s</span></div>`).join("")}</div>
+    <p class="meta" style="margin:8px 0 4px">${T("ins_ideal", { v: P.ideal })}</p>
+    <details class="tli"><summary>${T("ins_profile_more")}</summary><table class="mt">${P.segs.map(([k, v, f]) => `<tr><td>${k}</td><td><b>${v}</b></td><td class="chg">${f}</td></tr>`).join("")}</table></details></div>`;
+}
 screens.insights = () => {
   const A = ANALYSED.find(a => a.id === S.insSel) || ANALYSED[0], r = S.rinks.find(z => z.id === A.rink), k = currentSkater();
   const C = { warm: "#93A0B8", long: "#2A64C5", short: "#5CE1FF", start: "#F2923A", effort: "#D4F53C" };
@@ -1915,21 +1948,23 @@ screens.insights = () => {
   const P = [["speed", "sc_speed", "var(--rink)"], ["attack", "sc_attack", "var(--signal)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "#93A0B8"]];
   return `${shellTop()}<h1>${T("insights_title")}</h1>
   <div class="chips" id="inssel">${ANALYSED.map(a => `<button type="button" class="chip ${a === A ? "on" : ""}" data-ins="${a.id}">${esc((S.rinks.find(z => z.id === a.rink) || {}).short || "")} · ${esc(dfmt(new Date(a.date + "T12:00"), { day: "numeric", month: "short" }))}</button>`).join("")}</div>
-  <div class="nextup striped" style="padding-right:24%"><div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
+  <div class="nextup ${A.kind === "race" ? "raced" : "striped"}" style="padding-right:24%">${A.kind === "race" ? LANES : ""}<div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
     <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(A.date + "T12:00"), { weekday: "short", day: "numeric", month: "short" }))} · ${A.start} · ${A.mins} min</div>
-    <div class="mstats" style="flex-wrap:wrap"><div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div></div></div>
-  ${sec(T("ins_score_h"), "pro", `<div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${A.parts[k2]}%;background:${c}"></i></span><b>${A.parts[k2]}</b></div>`).join("")}</div>`)}
-  ${sec(T("ins_timeline_h"), "pro", `<div class="lbar" style="height:26px">${A.blocks.map(([a, b, kd]) => `<i style="left:${(a / A.mins * 100).toFixed(2)}%;width:${Math.max((b - a) / A.mins * 100, 1.2).toFixed(2)}%;background:${C[kd]}"></i>`).join("")}</div>
+    <div class="mstats" style="flex-wrap:wrap">${A.head ? `<div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div>` : A.head2.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join("")}</div></div>
+  ${profileCard(PROFILES[A.vsRink || A.rink], A)}
+  ${A.vs ? sec(T("ins_vs_h"), "pro", `<table class="mt"><tr><th></th>${A.vs.cols.map(c => `<th>${c}</th>`).join("")}</tr>${A.vs.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td>${rw.slice(2).map(([v, pc]) => `<td><b class="${pc >= 95 ? "up2" : pc < 80 ? "dn2" : ""}">${v}</b><div class="pc"><i style="width:${Math.min(pc, 100)}%;background:${pc >= 95 ? "var(--lime)" : pc < 80 ? "var(--signal)" : "var(--cyan)"}"></i></div><span class="meta" style="font-size:11px">${pc}%</span></td>`).join("")}</tr>`).join("")}</table><div class="hint">${esc(A.vsNote)}</div>`) : ""}
+  ${A.parts ? sec(T("ins_score_h"), "pro", `<div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${A.parts[k2]}%;background:${c}"></i></span><b>${A.parts[k2]}</b></div>`).join("")}</div>`) : ""}
+  ${A.blocks ? sec(T("ins_timeline_h"), "pro", `<div class="lbar" style="height:26px">${A.blocks.map(([a, b, kd]) => `<i style="left:${(a / A.mins * 100).toFixed(2)}%;width:${Math.max((b - a) / A.mins * 100, 1.2).toFixed(2)}%;background:${C[kd]}"></i>`).join("")}</div>
     <div class="ax" style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0′</span><span>30′</span><span>60′</span><span>${A.mins}′</span></div>
-    <div style="margin-top:8px">${A.phases.map(([tm, w, d]) => `<div class="kv"><span><b>${w}</b>${d ? `<span class="meta"> · ${esc(d)}</span>` : ""}</span><span class="ts">${tm}</span></div>`).join("")}</div>`)}
-  ${sec(T("ins_laps_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_laps_d", { n: A.head.under23, t: A.head.typical })}</p>${insLapChart(A)}
-    <div class="legend2"><span><i style="background:#5CE1FF"></i>${T("ins_under23")}</span><span><i style="background:#2A64C5"></i>${T("ins_other_laps")}</span><span><i style="background:#4B5D83"></i>${T("ins_buildup")}</span></div>`)}
-  ${sec(T("ins_pacing_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_pacing_d")}</p>${insFadeChart(A.fade)}
-    <table class="mt"><tr><th></th><th>${T("ins_fastest_lap")}</th><th>${T("ins_lap5")}</th><th></th></tr>${A.fade.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`)}
-  ${sec(T("ins_tech_h"), "elite", `<table class="mt"><tr><th></th><th>21 Nov</th><th>24 Nov</th><th></th></tr>${A.tech.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td><b class="${rw[4] ? "up2" : ""}">${rw[2]}</b></td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`)}
-  ${sec(T("ins_starts_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_starts_d")}</p>${A.starts.map(([m, d, n, pk]) => `<div class="kv"><span><b>${m}</b><span class="meta"> · ${d}</span></span><span><span class="lapchip ${n >= 13 ? "best" : ""}">${n}</span><span class="meta"> in 5 s · ${pk}/min</span></span></div>`).join("")}
-    <div class="hint">${T("ins_starts_ref")}</div>`)}
-  ${sec(T("ins_compare_h"), "elite", `<table class="mt"><tr><th>VN</th><th>17 Nov</th><th>21 Nov</th><th>24 Nov</th></tr>${A.compare.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td><b class="up2">${rw[3]}</b></td></tr>`).join("")}</table>`)}
+    <div style="margin-top:8px">${A.phases.map(([tm, w, d]) => `<div class="kv"><span><b>${w}</b>${d ? `<span class="meta"> · ${esc(d)}</span>` : ""}</span><span class="ts">${tm}</span></div>`).join("")}</div>`) : ""}
+  ${A.laps ? sec(T("ins_laps_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_laps_d", { n: A.head.under23, t: A.head.typical })}</p>${insLapChart(A)}
+    <div class="legend2"><span><i style="background:#5CE1FF"></i>${T("ins_under23")}</span><span><i style="background:#2A64C5"></i>${T("ins_other_laps")}</span><span><i style="background:#4B5D83"></i>${T("ins_buildup")}</span></div>`) : ""}
+  ${A.fade ? sec(T("ins_pacing_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_pacing_d")}</p>${insFadeChart(A.fade)}
+    <table class="mt"><tr><th></th><th>${T("ins_fastest_lap")}</th><th>${T("ins_lap5")}</th><th></th></tr>${A.fade.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`) : ""}
+  ${A.tech ? sec(T("ins_tech_h"), "elite", `<table class="mt"><tr><th></th><th>21 Nov</th><th>24 Nov</th><th></th></tr>${A.tech.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td><b class="${rw[4] ? "up2" : ""}">${rw[2]}</b></td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`) : ""}
+  ${A.starts && !A.vs ? sec(T("ins_starts_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_starts_d")}</p>${A.starts.map(([m, d, n, pk]) => `<div class="kv"><span><b>${m}</b><span class="meta"> · ${d}</span></span><span><span class="lapchip ${n >= 13 ? "best" : ""}">${n}</span><span class="meta"> in 5 s · ${pk}/min</span></span></div>`).join("")}
+    <div class="hint">${T("ins_starts_ref")}</div>`) : ""}
+  ${A.compare ? sec(T("ins_compare_h"), "elite", `<table class="mt"><tr><th>VN</th><th>17 Nov</th><th>21 Nov</th><th>24 Nov</th></tr>${A.compare.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td><b class="up2">${rw[3]}</b></td></tr>`).join("")}</table>`) : ""}
   ${sec(T("ins_recs_h"), "elite", `<ol class="recs">${A.recs.map(([h, d]) => `<li><b>${h}.</b> ${d}</li>`).join("")}</ol><div class="advice" style="margin:8px 0 0"><div><div class="k">${T("ins_next")}</div>${esc(A.next)}</div></div>`)}
   <div class="hint">${T("ins_proto_note")}</div>`;
 };
