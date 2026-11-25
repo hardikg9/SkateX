@@ -762,3 +762,11 @@ Object.assign(SL_I18N.en, {                          // v0.12
   live_need_sensor: "Connect a sensor to see laps, practice races and PBs build up live. You can still time laps by hand.",
   live_auto_note: "Prototype: laps are simulated and arrive 8× faster than real. A break of a minute or more closes the laps before it into a practice race."
 });
+Object.assign(SL_I18N.en, {                          // v0.13 insights
+  ins_score_h: "Session score", ins_laps_h: "Every lap", ins_tech_h: "Technique on fast laps", ins_starts_h: "Starts", ins_compare_h: "Compared with earlier VN sessions", ins_timeline_h: "Session timeline", ins_pacing_h: "Pacing in the 5-lap sets",
+  ins_laps_d: "Every lap of the session. {n} laps under 23 s; typical fast lap {t} s.", ins_under23: "Under 23 s", ins_other_laps: "Other laps", ins_buildup: "First lap of a set",
+  ins_pacing_d: "Lap 2 was the fastest, then about 0.6 s slower each lap.", ins_fastest_lap: "Lap 2", ins_lap5: "Lap 5",
+  ins_starts_d: "Pushes in the first 5 s of each standing start, and the top push rate.", ins_starts_ref: "Best on record: 16 pushes in 5 s (17 Nov). 21 Nov 1-lap races: 8 to 14.",
+  ins_recs_h: "Recommendations", ins_next: "Look for next session",
+  ins_proto_note: "Prototype: insights from the 24 Nov VN practice, analysed from the raw recording. Lap times are measured from the bends, good to about 0.5 s. Badges show the plan each insight would need."
+});

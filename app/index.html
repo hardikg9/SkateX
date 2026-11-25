@@ -244,6 +244,12 @@
   .tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--surface); color: #E3E8F2; } .tag.c { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); }
   .player { height: 200px; border-radius: 20px; background: var(--section); display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--muted); margin: 8px 0 14px; border: 1px solid var(--line); }
   .player svg { width: 56px; height: 56px; color: #fff; background: var(--rink); border-radius: 50%; padding: 12px; outline: 1.5px solid var(--cyan); outline-offset: 3px; }
+  .nextup .mstats { gap: 14px; } .nextup .mstats b { font-size: 24px; }
+  .ins .insh { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; } .ins .insh b { font-size: 16px; }
+  .legend2 { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: var(--muted); margin-top: 4px; } .legend2 i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  table.mt { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; } table.mt th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 700; padding: 4px 4px 6px; }
+  table.mt td { padding: 6px 4px; border-top: 1px solid var(--line); } table.mt td.chg { color: var(--muted); font-size: 12px; } table.mt b.up2 { color: var(--lime); }
+  ol.recs { margin: 0; padding-left: 20px; } ol.recs li { margin: 6px 0; font-size: 14px; } ol.recs li::marker { color: var(--cyan); font-weight: 800; }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -293,7 +299,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.12";
+const APP_VERSION = "0.13";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -1862,18 +1868,73 @@ screens.planadd.init = () => {
 };
 
 // ================================================================ Insights, Learn
+// Insights from an analysed session. For now the analysis is done off the app (from the raw recording) and published here;
+// the prototype carries the 24 Nov VN practice. The plan badges show which tier each insight would sit in.
+const ANALYSED = [{
+  id: "vn-2026-11-24", rink: "vn", date: "2026-11-24", title: "VN practice", start: "9:17 pm", mins: 84, score: 80,
+  parts: { speed: 100, attack: 55, steady: 44, volume: 100, progress: 100 },
+  head: { laps: 59, km: 11.8, best: 21.5, under23: 14, typical: 22.8, pushes: 44 },
+  laps: [[0.7,30.34,1],[1.2,26.53,0],[1.7,28.16,0],[2.1,26.73,0],[2.6,24.4,0],[5.1,25.65,1],[5.6,24.58,0],[6.0,24.82,0],[6.4,22.62,0],[9.4,23.8,1],[9.8,24.01,0],[10.2,25.08,0],[10.6,25.33,0],
+         [15.2,28.91,1],[15.6,21.59,0],[16.0,22.16,0],[16.4,22.53,0],[16.7,23.06,0],[21.2,25.7,1],[21.6,21.65,0],[22.0,22.71,0],[22.3,23.36,0],[22.7,24.07,0],[27.6,32.02,1],[28.2,28.8,0],[28.6,22.83,0],
+         [29.0,22.29,0],[29.4,23.93,0],[29.8,24.11,0],[38.0,22.26,0],[38.4,21.49,0],[41.7,25.61,1],[42.1,22.83,0],[42.5,23.29,0],[46.7,27.81,1],[47.1,22.34,0],[47.5,22.75,0],[58.7,26.44,1],
+         [63.4,29.87,1],[67.8,25.92,1],[70.5,34.51,1],[71.0,22.69,0],[79.6,26.73,1],[80.1,23.92,0]],
+  blocks: [[0.1,3.0,"warm"],[5.0,6.7,"long"],[9.2,11.4,"long"],[14.8,17.3,"long"],[20.8,23.3,"long"],[27.5,30.3,"long"],[37.2,38.7,"short"],[41.6,43.1,"short"],[46.0,48.0,"short"],
+           [55.2,55.5,"start"],[56.4,56.6,"start"],[58.5,59.2,"start"],[63.2,64.1,"effort"],[67.6,68.4,"effort"],[70.3,71.4,"effort"],[73.3,73.8,"start"],[74.9,75.6,"warm"],[78.1,78.6,"start"],[79.6,80.7,"effort"]],
+  phases: [["9:17", "Warm-up", "5 easy laps, 24 to 30 s"], ["9:22", "Long sets", "5 sets of 4 to 6 laps · best 21.6 s"], ["9:54", "Short sets", "3 sets of 3 to 4 laps · best 21.5 s"],
+           ["10:05", "Break", "about 7 min"], ["10:12", "Start sprints", "3 standing starts, 13 to 19 s"], ["10:20", "Rolling efforts", "1.5 to 2 laps · best 22.7 s"],
+           ["10:30", "Timed laps", "2 standing-start laps, 29 and 32 s"], ["10:38", "Cool-down", ""]],
+  fade: { laps: [22.0, 22.4, 23.3, 23.7], even: 22.5, rows: [["Pushes per minute", "122–128", "107–115", "−10%"], ["Push strength", "0.93–1.01 g", "0.80–0.89 g", "−13%"], ["Pushes per lap", "44–46", "41–46", "same"]] },
+  tech: [["Pushes per minute, crossovers", "132", "123", "slower rhythm", 0], ["Pushes per minute, straights", "110", "98", "slower rhythm", 0], ["Push in crossovers", "0.72 g", "0.80 g", "+11%", 1], ["Push on straights", "1.08 g", "1.13 g", "same", 0], ["Forward lean", "34°", "41°", "lower, better", 1]],
+  starts: [["min 55", "19 s sprint", 4, 213], ["min 56", "13 s sprint", 10, 211], ["min 59", "sprint, rolled on", 11, 197], ["min 73", "1 lap, 29 s", 14, 215], ["min 78", "1 lap, 32 s", 13, 180]],
+  compare: [["Laps skated", "~13", "~40", "~59"], ["Fast laps", "2", "14", "27"], ["Laps under 23 s", "1", "4", "14"], ["Fastest lap", "21.7 s", "22.5 s", "21.5 s"], ["Typical fast lap", "23.2 s", "23.2 s", "22.8 s"], ["Pushes per lap", "50", "46", "44"], ["Distance per push", "4.0 m", "4.35 m", "4.55 m"]],
+  recs: [["Even out the 1000 m", "Lap 2 averaged 22.0 s, lap 5 23.7 s. Aim for every lap at about 22.5 s, holding 115+ pushes per minute."], ["Keep the long push", "44 pushes per lap is the new standard. When tired, push more often, not shorter."],
+         ["Train the last two laps", "Push strength fell 13% by lap 5. Add 2-lap finishes at the end of sets."], ["Sharpen the first five pushes", "Start early in the session, aim for 14+ pushes in the first 5 s."], ["Confirm the best lap", "Time a flying lap with taps to make 21.5 s official."]],
+  next: "Lap 5 within 0.8 s of lap 2 · 44 pushes per lap or fewer · 14+ pushes in the first 5 s of the first start"
+}];
+function insLapChart(A) {                              // every lap of the session against the minute it was skated; faster is higher
+  const W = 340, H = 170, x0 = 34, y0 = 12, w = W - x0 - 8, h = H - y0 - 24, lo = 21, hi = 33, pb = 21.8;
+  const X = m => x0 + m / A.mins * w, Y = v => y0 + (Math.min(v, hi) - lo) / (hi - lo) * h;
+  const best = Math.min(...A.laps.map(l => l[1]));
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Lap times through the session">
+    ${[22, 24, 26, 28, 30, 32].map(v => `<line x1="${x0}" x2="${W - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="#36496E" stroke-width="1"/><text x="${x0 - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="10" fill="#93A0B8">${v}</text>`).join("")}
+    <line x1="${x0}" x2="${W - 8}" y1="${Y(pb)}" y2="${Y(pb)}" stroke="#D4F53C" stroke-dasharray="4 3" stroke-width="1"/><text x="${W - 10}" y="${Y(pb) - 4}" text-anchor="end" font-size="10" fill="#D4F53C">PB 21.8</text>
+    ${A.laps.map(([m, v, f]) => `<circle cx="${X(m)}" cy="${Y(v)}" r="${v === best ? 5 : 3.4}" fill="${f ? "#4B5D83" : v < 23 ? "#5CE1FF" : "#2A64C5"}"${v === best ? ' stroke="#D4F53C" stroke-width="2"' : ""}><title>${m} min: ${v} s</title></circle>`).join("")}
+    ${[0, 15, 30, 45, 60, 75].map(m => `<text x="${X(m)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#93A0B8">${m}′</text>`).join("")}</svg>`;
+}
+function insFadeChart(F) {
+  const W = 340, H = 120, x0 = 34, w = W - x0 - 20, lo = 21.5, hi = 24, Y = v => 12 + (v - lo) / (hi - lo) * 80, X = i => x0 + i * w / 3;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Average lap time in the 5-lap sets, laps 2 to 5">
+    <line x1="${x0}" x2="${x0 + w}" y1="${Y(F.even)}" y2="${Y(F.even)}" stroke="#93A0B8" stroke-dasharray="4 3"/><text x="${x0 + w}" y="${Y(F.even) - 5}" text-anchor="end" font-size="10" fill="#93A0B8">even pace ${F.even}</text>
+    <polyline fill="none" stroke="#5CE1FF" stroke-width="3" stroke-linejoin="round" points="${F.laps.map((v, i) => X(i) + "," + Y(v)).join(" ")}"/>
+    ${F.laps.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#5CE1FF"/><text x="${X(i)}" y="${Y(v) + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="#F2F2F7">${v.toFixed(1)}</text><text x="${X(i)}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#93A0B8">lap ${i + 2}</text>`).join("")}</svg>`;
+}
 screens.insights = () => {
-  const tier = S.plan === "coach" ? "elite" : S.plan;
-  const rows = [["ins_laps", "pro"], ["ins_starts", "pro"], ["ins_finish", "pro"], ["ins_crossover", "elite"], ["ins_posture", "elite"], ["ins_compare", "elite"]];
-  const open = need => tier === "elite" || (tier === "pro" && need === "pro");
-  const k = currentSkater();
-  return `${shellTop()}<h1>${T("insights_title")}</h1><p class="sub">${T("insights_sub")}</p>
-  ${k && role() !== "coach" ? `<div class="card tap" onclick="go('ai')"><b>${T("ai_title")}</b> <span class="badge elite">${T("needs_elite")}</span><div class="meta">${k.self ? T("ai_sub_you") : T("ai_sub", { name: esc(k.display_name) })}</div></div>` : ""}
-  <div class="card">${rows.map(([k, need]) => `<div class="lockrow"><span>${open(need) ? "" : T("locked") + ": "}${T(k)}</span><span class="badge ${need}">${T("needs_" + need)}</span></div>`).join("")}</div>
-  <div class="hint">${T("ins_empty")}</div>
-  ${tier === "free" ? `<button class="secondary" onclick="go('settings')">${T("see_plans")}</button>` : ""}`;
+  const A = ANALYSED.find(a => a.id === S.insSel) || ANALYSED[0], r = S.rinks.find(z => z.id === A.rink), k = currentSkater();
+  const C = { warm: "#93A0B8", long: "#2A64C5", short: "#5CE1FF", start: "#F2923A", effort: "#D4F53C" };
+  const sec = (title, tier, body) => `<div class="card ins"><div class="insh"><b>${title}</b><span class="badge ${tier}">${T("needs_" + tier)}</span></div>${body}</div>`;
+  const P = [["speed", "sc_speed", "var(--rink)"], ["attack", "sc_attack", "var(--signal)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "#93A0B8"]];
+  return `${shellTop()}<h1>${T("insights_title")}</h1>
+  <div class="chips" id="inssel">${ANALYSED.map(a => `<button type="button" class="chip ${a === A ? "on" : ""}" data-ins="${a.id}">${esc((S.rinks.find(z => z.id === a.rink) || {}).short || "")} · ${esc(dfmt(new Date(a.date + "T12:00"), { day: "numeric", month: "short" }))}</button>`).join("")}</div>
+  <div class="nextup striped" style="padding-right:24%"><div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
+    <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(A.date + "T12:00"), { weekday: "short", day: "numeric", month: "short" }))} · ${A.start} · ${A.mins} min</div>
+    <div class="mstats" style="flex-wrap:wrap"><div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div></div></div>
+  ${sec(T("ins_score_h"), "pro", `<div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${A.parts[k2]}%;background:${c}"></i></span><b>${A.parts[k2]}</b></div>`).join("")}</div>`)}
+  ${sec(T("ins_timeline_h"), "pro", `<div class="lbar" style="height:26px">${A.blocks.map(([a, b, kd]) => `<i style="left:${(a / A.mins * 100).toFixed(2)}%;width:${Math.max((b - a) / A.mins * 100, 1.2).toFixed(2)}%;background:${C[kd]}"></i>`).join("")}</div>
+    <div class="ax" style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0′</span><span>30′</span><span>60′</span><span>${A.mins}′</span></div>
+    <div style="margin-top:8px">${A.phases.map(([tm, w, d]) => `<div class="kv"><span><b>${w}</b>${d ? `<span class="meta"> · ${esc(d)}</span>` : ""}</span><span class="ts">${tm}</span></div>`).join("")}</div>`)}
+  ${sec(T("ins_laps_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_laps_d", { n: A.head.under23, t: A.head.typical })}</p>${insLapChart(A)}
+    <div class="legend2"><span><i style="background:#5CE1FF"></i>${T("ins_under23")}</span><span><i style="background:#2A64C5"></i>${T("ins_other_laps")}</span><span><i style="background:#4B5D83"></i>${T("ins_buildup")}</span></div>`)}
+  ${sec(T("ins_pacing_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_pacing_d")}</p>${insFadeChart(A.fade)}
+    <table class="mt"><tr><th></th><th>${T("ins_fastest_lap")}</th><th>${T("ins_lap5")}</th><th></th></tr>${A.fade.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`)}
+  ${sec(T("ins_tech_h"), "elite", `<table class="mt"><tr><th></th><th>21 Nov</th><th>24 Nov</th><th></th></tr>${A.tech.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td><b class="${rw[4] ? "up2" : ""}">${rw[2]}</b></td><td class="chg">${rw[3]}</td></tr>`).join("")}</table>`)}
+  ${sec(T("ins_starts_h"), "pro", `<p class="meta" style="margin:0 0 6px">${T("ins_starts_d")}</p>${A.starts.map(([m, d, n, pk]) => `<div class="kv"><span><b>${m}</b><span class="meta"> · ${d}</span></span><span><span class="lapchip ${n >= 13 ? "best" : ""}">${n}</span><span class="meta"> in 5 s · ${pk}/min</span></span></div>`).join("")}
+    <div class="hint">${T("ins_starts_ref")}</div>`)}
+  ${sec(T("ins_compare_h"), "elite", `<table class="mt"><tr><th>VN</th><th>17 Nov</th><th>21 Nov</th><th>24 Nov</th></tr>${A.compare.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td><td>${rw[2]}</td><td><b class="up2">${rw[3]}</b></td></tr>`).join("")}</table>`)}
+  ${sec(T("ins_recs_h"), "elite", `<ol class="recs">${A.recs.map(([h, d]) => `<li><b>${h}.</b> ${d}</li>`).join("")}</ol><div class="advice" style="margin:8px 0 0"><div><div class="k">${T("ins_next")}</div>${esc(A.next)}</div></div>`)}
+  <div class="hint">${T("ins_proto_note")}</div>`;
 };
-screens.insights.init = wireWho;
+screens.insights.init = () => { wireWho();
+  if ($("#inssel")) $("#inssel").onclick = e => { const b = e.target.closest("[data-ins]"); if (!b) return; S.insSel = b.dataset.ins; persist(); render(); }; };
 const LEARN = [                                        // sample library for the prototype; titles stand in for real content
   { id: "l1", kind: "video", mins: 6, cats: ["quad", "inline", "race"], tags: ["Starts", "Technique"], title: "Standing starts: the first five strokes", d: "How to load the front leg, fall into the first stroke and build speed in five short, fast pushes." },
   { id: "l2", kind: "video", mins: 8, cats: ["quad", "inline"], tags: ["Crossovers", "Cadence"], title: "Crossovers: keeping the rhythm in the bends", d: "Short, quick crossovers keep speed through the corners. Drills to raise crossover cadence without losing grip." },
