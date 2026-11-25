@@ -179,6 +179,31 @@
   .pb { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; padding: 2px 7px; border-radius: 6px; background: var(--lime); color: var(--midnight); vertical-align: 2px; }
   .wkline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; }
   .wkline .cheer { width: 100%; font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 22px; line-height: 1; }
+  .wktiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+  button.wkt { margin: 0; width: auto; outline: 0; text-transform: none; letter-spacing: 0; text-align: left; background: var(--card); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 16px; padding: 10px 12px 9px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; font-weight: 600; }
+  button.wkt .v { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1; display: flex; align-items: center; gap: 6px; }
+  button.wkt .l { color: var(--muted); font-size: 11.5px; font-weight: 600; } button.wkt .l::after { content: " ▾"; }
+  button.wkt.on { border-color: var(--cyan); background: var(--surface); } button.wkt.on .l::after { content: " ▴"; }
+  button.wkt .sub { color: var(--cyan); font-size: 11px; font-weight: 600; }
+  .advice { position: relative; } .advice .slide { display: none; } .advice .slide.on { display: block; animation: advin .35s ease; }
+  @keyframes advin { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+  .advice .dots2 { display: flex; gap: 6px; margin-top: 10px; } .advice .dots2 i { width: 6px; height: 6px; border-radius: 3px; background: #4B5D83; cursor: pointer; transition: width .2s; } .advice .dots2 i.on { width: 18px; background: var(--cyan); }
+  .trendcard { padding: 12px 14px 10px; } .trendcard .chips { margin: 0 0 8px; } .trendcard .tpane { display: none; } .trendcard .tpane.on { display: block; }
+  .trendcard .th { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--muted); } .trendcard .th span:first-child { flex: 1; }
+  .trendcard .th b { font-family: var(--display); font-size: 26px; } .trendcard svg { width: 100%; height: 90px; display: block; margin-top: 4px; }
+  .trendcard .ax { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .lstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 12px; border-top: 1px solid #36496E; padding-top: 10px; }
+  .lstats div { text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #BAC3D3; }
+  .lstats b { display: block; font-family: var(--display); font-size: 24px; letter-spacing: 0; color: #F2F2F7; font-weight: 700; } .lstats b.pbv { color: var(--lime); }
+  .lbar { position: relative; height: 22px; background: var(--card); border-radius: 8px; margin: 6px 0 4px; overflow: hidden; }
+  .lbar i { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; } .lbar i.set { background: var(--rink); } .lbar i.cur { background: var(--cyan); } .lbar i.man { background: var(--signal); } .lbar i.note { background: var(--lime); width: 3px !important; }
+  .lfeed .lrow { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--line); } .lfeed .lrow:last-child { border-bottom: 0; }
+  .lfeed .lrow .mid { flex: 1; min-width: 0; } .lfeed .lrow.new { animation: advin .4s ease; }
+  .lfeed .cur { background: var(--section); color: #F2F2F7; border: 1.5px solid var(--cyan); border-radius: 14px; padding: 10px 12px; margin: 4px 0 8px; }
+  .lfeed .cur .k { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); }
+  .lapchip { display: inline-block; font-family: var(--display); font-size: 16px; font-weight: 700; padding: 2px 8px; border-radius: 8px; background: var(--surface); color: #F2F2F7; margin: 4px 4px 0 0; }
+  .lapchip.best { background: var(--lime); color: var(--midnight); } .lapchip.pb::after { content: " PB"; font-size: 10px; }
   .wkline .cheer em { font-style: italic; color: var(--lime); }
   .wkchip { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
   .wkchip b { font-family: var(--display); font-size: 16px; margin-right: 3px; }
@@ -239,8 +264,8 @@
   .wkhead { display: flex; justify-content: space-between; align-items: baseline; }
   body.gz main button.gz-go { font-size: 17px; padding: 18px; }
   body.gz main button.gz-race-go { font-size: 17px; padding: 18px; }
-  body.gz .gz-meet { background: var(--section); color: #F2F2F7; border: 0; border-radius: 20px; padding: 16px 24% 16px 16px; }
-  body.gz .gz-meet .meta { color: #C9D1E3; }
+  .gz-meet { background: var(--section); color: #F2F2F7; border: 0; border-radius: 20px; padding: 16px 24% 16px 16px; }
+  .gz-meet .meta { color: #C9D1E3; }
   #print { display: none; }
   @media print {
     @page { size: A4; margin: 14mm 12mm 16mm; }
@@ -268,7 +293,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.11";
+const APP_VERSION = "0.12";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -652,43 +677,57 @@ screens.home = () => {
     return `<div class="day ${kk === dayKey(now) ? "today" : ""} ${kk === sel ? "sel" : ""}" data-d="${kk}"><div class="d">${esc(dfmt(d, { weekday: "short" }))}</div><div class="n">${d.getDate()}</div>
       <div class="dots">${sc.length ? `<span class="dot ${band(best.length ? Math.max(...best) : null)}"></span>` : ""}${pl ? '<span class="dot plan"></span>' : ""}</div></div>`; }).join("")}</div>
   ${k ? `<div class="wkline"><div class="cheer">${cheer}</div>
-    <button class="wkchip ${open === "sess" ? "on" : ""}" data-wk="sess"><b>${week.length}</b>${T("sessions_n", { n: "" }).trim()}${avgSc != null ? ` · ${T("avg_score")} ${avgSc}` : ""}</button>
-    <button class="wkchip ${open === "pb" ? "on" : ""}" data-wk="pb"><span class="pb">PB</span> <b>${pbs}</b>${T("pbs_week")}</button>
-    <button class="wkchip ${open === "best" ? "on" : ""}" data-wk="best"><b>${best ? fmtLap(best) : "–"}</b>${T("best_lap_short")}</button></div>
+    <div class="wktiles">
+      <button class="wkt ${open === "sess" ? "on" : ""}" data-wk="sess"><span class="v">${week.length}</span><span class="l">${T("sessions_n", { n: "" }).trim()}</span>${avgSc != null ? `<span class="sub">${T("avg_score")} ${avgSc}</span>` : ""}</button>
+      <button class="wkt ${open === "pb" ? "on" : ""}" data-wk="pb"><span class="v">${pbs}<span class="pb">PB</span></span><span class="l">${T("pbs_short")}</span></button>
+      <button class="wkt ${open === "best" ? "on" : ""}" data-wk="best"><span class="v">${best ? fmtLap(best) : "–"}</span><span class="l">${T("best_lap_short")}</span>${best ? `<span class="sub">${T("seconds")}</span>` : ""}</button></div></div>
   ${open ? `<div class="wkpanel">${panel}</div>` : ""}
   <div class="advice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-    <div><div class="k">${T("focus_week")}</div>${T(adviceKey(week))}</div></div>` : ""}
+    <div style="flex:1">${adviceList(week).map((a, i) => `<div class="slide ${i ? "" : "on"}"><div class="k">${T("focus_week")} · ${i + 1}/${adviceList(week).length}</div>${T(a)}</div>`).join("")}
+      <div class="dots2">${adviceList(week).map((a, i) => `<i class="${i ? "" : "on"}" data-ai="${i}"></i>`).join("")}</div></div></div>` : ""}
   ${dayPlans.map(planCard).join("")}
   ${k ? raceHomeCard(k) : ""}
   ${k ? betterCard(k, ss) : ""}
-  ${ss.length ? `<h2>${T("trends")}</h2>${trends(ss)}` : `<div class="card meta">${T("no_data_yet")}</div>`}
+  <h2>${T("trends")}</h2>${trends(ss)}
   <h2>${T("ai_summary")}</h2>
   <div class="card">${esc(summaryText(k, ss, week))}<div class="hint">${T("ai_note")}</div></div>${aiBtn}
   ${k ? `<h2>${T("more")}</h2><div class="card">
     <div class="kv tap" onclick="go('rinks')"><span>${T("my_rinks")}</span><span>${S.rinks.length} ›</span></div>
     <div class="kv tap" onclick="go('setups')"><span>${T("skate_setups")}</span><span>${(k.setups || []).length} ›</span></div></div>` : ""}`;
 };
-function trends(ss) {                                // the three numbers worth watching: session score, best lap at the main rink, attack
-  const C = ss.filter(counts).sort((a, b) => a.date.localeCompare(b.date));
-  const cnt = {}; C.forEach(x => cnt[x.rink_id] = (cnt[x.rink_id] || 0) + 1);
+function trends(ss) {                                // one card; a selector picks the chart. Score, best lap and attack need timed laps; time and laps work for every session
+  const C = ss.filter(counts).sort((a, b) => a.date.localeCompare(b.date)), A = [...ss].sort((a, b) => a.date.localeCompare(b.date));
+  const timed = C.filter(x => bestLapOf(x)), cnt = {}; timed.forEach(x => cnt[x.rink_id] = (cnt[x.rink_id] || 0) + 1);
   const main = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], mr = S.rinks.find(z => z.id === main);
   const sc = C.map(x => [x, sessionScore(x)]).filter(z => z[1]).slice(-12);
+  const mins = x => x.duration_s ? x.duration_s / 60 : x.end ? (new Date(x.end) - new Date(x.date)) / 6e4 : null;
   const lines = [
-    [T("session_score"), sc.map(z => z[1].total), "var(--lime)", false, v => v],
-    [T("best_lap_at", { rink: esc(mr ? mr.short : "") }), C.filter(x => x.rink_id === main).map(bestLapOf).filter(Boolean).slice(-12), "var(--cyan)", true, v => fmtLap(v) + " s"],
-    [T("sc_attack"), sc.map(z => Math.round(z[1].parts.attack * 100)), "var(--signal)", false, v => v + "%"]];
-  return lines.map(([title, v, col, lowGood, f]) => {
-    if (v.length < 2) return "";
-    const lo = Math.min(...v), hi = Math.max(...v), W = 300, H = 56, pd = 6, d = v.at(-1) - v.at(-2), up = lowGood ? d < 0 : d > 0;
-    const xy = v.map((y, i) => [pd + i * (W - 2 * pd) / (v.length - 1), hi === lo ? H / 2 : lowGood ? pd + (y - lo) / (hi - lo) * (H - 2 * pd) : H - pd - (y - lo) / (hi - lo) * (H - 2 * pd)]);
-    return `<div class="card trend"><div class="th"><span>${title}</span><b style="color:${col}">${f(v.at(-1))}</b><span class="dl ${d === 0 ? "" : up ? "up" : "dn"}">${d === 0 ? "=" : up ? "▲" : "▼"}</span></div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" points="${xy.map(p => p.join(",")).join(" ")}"/>${xy.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === xy.length - 1 ? 4.5 : 2.5}" fill="${col}"/>`).join("")}</svg></div>`; }).join("");
+    ["score", T("session_score"), sc.map(z => [z[0], z[1].total]), "var(--lime)", false, v => v],
+    ["best", T("best_lap_at", { rink: esc(mr ? mr.short : "") }), timed.filter(x => x.rink_id === main).map(x => [x, bestLapOf(x)]).slice(-12), "var(--cyan)", true, v => fmtLap(v) + " s"],
+    ["attack", T("sc_attack"), sc.map(z => [z[0], Math.round(z[1].parts.attack * 100)]), "var(--signal)", false, v => v + "%"],
+    ["laps", T("laps_per_session"), C.map(x => [x, lapsAll(x).length]).filter(z => z[1]).slice(-12), "var(--rink)", false, v => v],
+    ["time", T("minutes_per_session"), A.map(x => [x, mins(x)]).filter(z => z[1] && z[1] < 400).slice(-12), "#93A0B8", false, v => Math.round(v) + " min"]].filter(l => l[2].length >= 2);
+  if (!lines.length) return `<div class="card meta">${T("trends_empty")}</div>`;
+  const sel = lines.some(l => l[0] === S.trendSel) ? S.trendSel : lines[0][0];
+  return `<div class="card trendcard"><div class="chips" id="trsel">${lines.map(l => `<button type="button" class="chip ${l[0] === sel ? "on" : ""}" data-tr="${l[0]}">${l[1]}</button>`).join("")}</div>
+    ${lines.map(([id, title, P, col, lowGood, f]) => { const v = P.map(z => z[1]);
+      const lo = Math.min(...v), hi = Math.max(...v), W = 300, H = 90, pd = 8, d = v.at(-1) - v.at(-2), up = lowGood ? d < 0 : d > 0;
+      const xy = v.map((y, i) => [pd + i * (W - 2 * pd) / (v.length - 1), hi === lo ? H / 2 : lowGood ? pd + (y - lo) / (hi - lo) * (H - 2 * pd) : H - pd - (y - lo) / (hi - lo) * (H - 2 * pd)]);
+      const dd = x => esc(dfmt(new Date(x.date), { day: "numeric", month: "short" }));
+      return `<div class="tpane ${id === sel ? "on" : ""}" data-tp="${id}"><div class="th"><span>${T("last_n_sessions", { n: v.length })}</span><b style="color:${col}">${f(v.at(-1))}</b><span class="dl ${d === 0 ? "" : up ? "up" : "dn"}">${d === 0 ? "=" : up ? "▲" : "▼"}</span></div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" points="${xy.map(q => q.join(",")).join(" ")}"/>${xy.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === xy.length - 1 ? 5 : 3}" fill="${col}"/>`).join("")}</svg>
+        <div class="ax"><span>${dd(P[0][0])}</span><span>${lowGood ? T("faster_up") : ""}</span><span>${dd(P.at(-1)[0])}</span></div></div>`; }).join("")}</div>`;
 }
 function lapBars(s) {                                // mini chart of the session's laps, best lap in lime
   const Lp = lapsAll(s).slice(0, 18); if (Lp.length < 2) return "";
   const lo = Math.min(...Lp), hi = Math.max(...Lp), W = 72, H = 40, bw = W / Lp.length;
   return `<svg class="mini" viewBox="0 0 ${W} ${H}" aria-hidden="true">${Lp.map((v, i) => { const h = 10 + (hi === lo ? 1 : (hi - v) / (hi - lo)) * (H - 10);
     return `<rect x="${i * bw + 1}" y="${H - h}" width="${Math.max(1.5, bw - 2)}" height="${h}" rx="1.5" fill="${v === lo ? "#D4F53C" : "#5CE1FF"}" opacity="${v === lo ? 1 : .75}"/>`; }).join("")}</svg>`;
+}
+function adviceList(week) {                           // weakest part first, then the rest, then two standing reminders
+  const P = week.map(sessionScore).filter(Boolean), M = { speed: "adv_crossover", attack: "adv_attack", steady: "adv_steady", volume: "adv_volume", progress: "adv_rest" };
+  const order = P.length ? ["speed", "attack", "steady", "volume", "progress"].map(x => [x, P.reduce((a, z) => a + z.parts[x], 0) / P.length]).filter(z => z[1] < .85).sort((a, b) => a[1] - b[1]).map(z => M[z[0]]) : ["adv_crossover"];
+  return [...new Set([...order, "adv_split", "adv_warmup"])].slice(0, 5);
 }
 function adviceKey(week) {                             // the weakest part of this week's scores decides the focus
   const P = week.map(sessionScore).filter(Boolean); if (!P.length) return "adv_crossover";
@@ -699,6 +738,13 @@ function adviceKey(week) {                             // the weakest part of th
 screens.home.init = () => {
   wireWho();
   document.querySelectorAll(".day").forEach(d => d.onclick = () => { S.selDay = d.dataset.d; persist(); render(); });
+  clearInterval(window._advT);
+  const slides = [...document.querySelectorAll(".advice .slide")], dots = [...document.querySelectorAll(".advice .dots2 i")]; let ai = 0;
+  const showA = n => { ai = (n + slides.length) % slides.length; slides.forEach((x, i) => x.classList.toggle("on", i === ai)); dots.forEach((x, i) => x.classList.toggle("on", i === ai)); };
+  if (slides.length > 1) { window._advT = setInterval(() => { if (!document.querySelector(".advice")) return clearInterval(window._advT); showA(ai + 1); }, 6000);
+    dots.forEach(d => d.onclick = e => { e.stopPropagation(); showA(+d.dataset.ai); }); document.querySelector(".advice").onclick = () => showA(ai + 1); }
+  if ($("#trsel")) $("#trsel").onclick = e => { const b = e.target.closest("[data-tr]"); if (!b) return; S.trendSel = b.dataset.tr; persist();
+    document.querySelectorAll("#trsel .chip").forEach(c => c.classList.toggle("on", c === b)); document.querySelectorAll(".tpane").forEach(p => p.classList.toggle("on", p.dataset.tp === b.dataset.tr)); };
   document.querySelectorAll("[data-wk]").forEach(b => b.onclick = () => { S.homeOpen = S.homeOpen === b.dataset.wk ? null : b.dataset.wk; persist(); render(); });
   wireSessions(); wireEvents();
   const sel = document.querySelector(".day.sel"); if (sel) sel.scrollIntoView({ inline: "center", block: "nearest" });
@@ -1412,6 +1458,7 @@ screens.live = () => {
               .sort((a, b) => b.at.localeCompare(a.at));
   return `${back("skate", "")}<p class="gz-hi">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</p><h1>${T("gz_on_track")}</h1>${sensorBar()}
   <div class="gz-timer ${L.paused ? "paused" : ""}"><div class="ring"><div class="lbl">${L.paused ? T("paused") : "● " + T("gz_session")}</div><div class="big" id="ltm">00:00</div></div>
+    <div class="lstats"><div><b id="ls-laps">0</b>${T("laps_n", { n: "" }).trim()}</div><div><b id="ls-races">0</b>${T("races_word")}</div><div><b id="ls-km">0.0</b>km</div><div><b id="ls-pb" class="pbv">0</b>PBs</div></div>
     <div class="gz-tctl"><button class="secondary" id="lpause">${L.paused ? T("resume") : T("pause")}</button><button class="gz-stop" id="lstop">■ ${T("stop")}</button></div></div>
   <div class="gz-tiles"><button class="gz-tile v raced" id="lvid">${LANES}${GZI.cam}<span>${T("act_practice_race")}</span></button>
     <button class="gz-tile l" id="llap">${GZI.watch}<span>${T("act_time_laps")}</span></button>
@@ -1420,7 +1467,10 @@ screens.live = () => {
     <div class="chips" id="nq" style="flex-wrap:wrap">${["nq_start", "nq_cross", "nq_fall", "nq_coach", "nq_tired", "nq_fast"].map(q => `<button type="button" class="chip" data-q="${q}">${T(q)}</button>`).join("")}</div>
     <input id="ntext" placeholder="${T("note_ph2")}"><div class="row"><button class="secondary" id="ncancel">${T("cancel")}</button><button id="nadd">${T("save_note")}</button></div></div>
   ${L.sensor && L.sensor.device ? "" : `<div class="hint">${T("free_practice_note")}</div>`}
-  <h2>${T("so_far")}</h2><div class="card">${tl.length ? tl.map(x => `<div class="kv"><span style="flex:1">${x.html}</span><span class="ts">${x.ts}</span></div>`).join("") : `<div class="meta">${T("nothing_yet")}</div>`}</div>
+  <h2>${T("live_timeline")}</h2><div class="lbar" id="lbar"></div>
+  <div class="card lfeed" id="lfeed"></div>
+  ${tl.length ? `<h2>${T("so_far")}</h2><div class="card">${tl.map(x => `<div class="kv"><span style="flex:1">${x.html}</span><span class="ts">${x.ts}</span></div>`).join("")}</div>` : ""}
+  ${L.sensor && L.sensor.device ? `<div class="hint">${T("live_auto_note")}</div>` : ""}
 `;
 };
 screens.live.init = () => {
@@ -1428,6 +1478,7 @@ screens.live.init = () => {
   const run = () => Date.now() - new Date(L.start) - (L.pause_ms || 0) - (L.paused ? Date.now() - L.paused : 0);
   const tick = () => { const e = $("#ltm"); if (!e) return; const sec = Math.max(0, Math.floor(run() / 1000)), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s2 = sec % 60;
     e.textContent = (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(s2).padStart(2, "0"); setTimeout(tick, 250); }; tick();
+  liveAuto(L, run);
   $("#lpause").onclick = () => { if (L.paused) { L.pause_ms = (L.pause_ms || 0) + (Date.now() - L.paused); L.paused = null; } else L.paused = Date.now(); persist(); render(); };
   $("#lvid").onclick = () => { vidReset({ practice: true }); go("racevideo"); };
   $("#llap").onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0, race: null, practice: true }); go("stopwatch"); };
@@ -1441,9 +1492,56 @@ screens.live.init = () => {
     const s = { id: uid(), skater_id: L.skater_id, date: L.start, end: now, rink_id: L.rink_id, setup_id: (L.changes.find(c => c.setup_id) ? L.items[0] && L.items[0].setup_id : null) || L.setup_id,
                 source: "stopwatch", verified: false, items: L.items, recorded_by: role(), notes: L.notes.map(n => `${n.t_s != null ? mmss(n.t_s) : tod(n.at)} ${n.text}`).join("\n") || null,
                 sensor: on ? L.sensor : null, changes: L.changes, duration_s: Math.round(run() / 1000) };
+    const A = L.auto; if (A) { closeGroup(L); A.groups.forEach(g => s.items.push({ id: uid(), at: g.at, kind: g.laps.length >= 2 ? "race" : "laps", laps: g.laps.map(x => x.t), total: +g.laps.reduce((p, x) => p + x.t, 0).toFixed(2), distance_laps: g.laps.length >= 2 ? g.laps.length : null, setup_id: L.setup_id, source: "sensor" })); }
+    clearInterval(window._liveT);
     S.sessions.push(s); S.live = null; S.viewSession = s.id; S.selDay = dayKey(new Date(s.date)); persist(); toast(t("session_saved")); go("session");
   };
 };
+// Live build-up of the session from the sensor's laps. The prototype makes the laps up (a set of 3 to 6 laps, then a break);
+// in the product they come from turn counting on the stream. A break of 60 s or more closes the laps before it into a practice race.
+function closeGroup(L) { const A = L.auto; if (A && A.cur.length) { A.groups.push({ at: A.cur[0].at, laps: A.cur }); A.cur = []; } }
+function liveAuto(L, run) {
+  clearInterval(window._liveT);
+  const on = L.sensor && L.sensor.device; if (!on) { if ($("#lfeed")) $("#lfeed").innerHTML = `<div class="meta">${T("live_need_sensor")}</div>`; return; }
+  const rk = S.rinks.find(z => z.id === L.rink_id), m = rk ? rk.lap_m : 200, typ = m / 200 * 22.6;
+  const prev = sessionsFor(S.skaters.find(z => z.id === L.skater_id)).filter(x => x.rink_id === L.rink_id && counts(x)).map(bestLapOf).filter(Boolean);
+  const pbBase = prev.length ? Math.min(...prev) : null;
+  L.auto = L.auto || { cur: [], groups: [], next: 4, setLen: 4, rest: 0 };
+  const A = L.auto, SPEED = 8;                           // demo: the session runs 8x fast, so a lap arrives every ~3 s
+  const draw = (fresh) => {
+    const all = [...A.groups.flatMap(g => g.laps), ...A.cur], best = all.length ? Math.min(...all.map(x => x.t)) : null, pbs = all.filter(x => x.pb).length;
+    const races = A.groups.filter(g => g.laps.length >= 2).length;
+    const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+    set("#ls-laps", all.length); set("#ls-races", races); set("#ls-km", (all.length * m / 1000).toFixed(1)); set("#ls-pb", pbs);
+    const tot = Math.max(A.sim || 0, 60), pos = x => (x / tot * 100).toFixed(2) + "%";
+    const bar = $("#lbar"); if (bar) bar.innerHTML = [...A.groups.map(g => `<i class="set" style="left:${pos(g.laps[0].s - g.laps[0].t)};width:${pos(g.laps.at(-1).s - g.laps[0].s + g.laps[0].t)}"></i>`),
+      A.cur.length ? `<i class="cur" style="left:${pos(A.cur[0].s - A.cur[0].t)};width:${pos(A.cur.at(-1).s - A.cur[0].s + A.cur[0].t)}"></i>` : "",
+      ].join("");
+    const chip = x => `<span class="lapchip ${x.t === best ? "best" : ""} ${x.pb ? "pb" : ""}">${fmtLap(x.t)}</span>`;
+    const feed = $("#lfeed"); if (!feed) return;
+    feed.innerHTML = (A.cur.length ? `<div class="cur ${fresh ? "new" : ""}"><div class="k">● ${T("live_now")} · ${T("laps_n", { n: A.cur.length })}</div>${A.cur.map(chip).join("")}</div>` : `<div class="meta" style="padding:6px 0">${A.groups.length ? T("live_resting") : T("live_waiting")}</div>`)
+      + A.groups.slice().reverse().map((g, i) => { const tt = g.laps.reduce((p, x) => p + x.t, 0), gb = Math.min(...g.laps.map(x => x.t)), n = A.groups.length - i;
+        return `<div class="lrow ${fresh && i === 0 && !A.cur.length ? "new" : ""}"><div class="pos ${g.laps.some(x => x.pb) ? "pod" : ""}" style="flex-basis:38px;height:38px;font-size:15px">${g.laps.length >= 2 ? "R" + A.groups.filter((x, j) => j < n && x.laps.length >= 2).length : "L"}</div>
+          <div class="mid"><b>${g.laps.length >= 2 ? T("live_prace", { n: g.laps.length, m: g.laps.length * m }) : T("live_single")}</b> <span class="meta">${mmss(g.laps[0].s - g.laps[0].t)}</span>
+          <div>${g.laps.map(chip).join("")}</div></div><div class="tm" style="font-family:var(--display);font-size:20px;font-weight:700">${fmtRT(tt)}</div></div>`; }).join("");
+  };
+  const newT = () => +(typ * (A.cur.length ? 1 : 1.12) + (Math.random() - .45) * 1.6 + A.cur.length * .35).toFixed(2);
+  const step = () => {
+    if (!$("#lfeed")) return clearInterval(window._liveT);
+    if (L.paused) return;
+    A.sim = (A.sim || 0) + SPEED;                         // simulated session seconds
+    if (A.rest > 0) { A.rest -= SPEED; if (A.rest <= 0) { A.setLen = 3 + Math.floor(Math.random() * 4); A.lapStart = A.sim; A.pend = newT(); } return; }
+    if (A.pend == null) { A.pend = newT(); A.lapStart = A.sim; }
+    if (A.sim - A.lapStart < A.pend) return;
+    const lap = { t: A.pend, s: A.sim, at: new Date().toISOString() };
+    const allBest = [...A.groups.flatMap(g => g.laps), ...A.cur].reduce((p, x) => Math.min(p, x.t), Infinity);
+    if (pbBase && lap.t < pbBase && lap.t < allBest) lap.pb = true;
+    A.cur.push(lap); A.lapStart = A.sim; A.pend = newT();
+    if (A.cur.length >= A.setLen) { closeGroup(L); A.rest = 90; A.pend = null; }   // a break closes the set into a practice race
+    persist(); draw(true);
+  };
+  draw(false); window._liveT = setInterval(step, 1000);
+}
 function saveLiveTiming(kind, timing) {                 // a timing taken inside the running practice
   const L = S.live; if (!L) return go("practice");
   L.items.push({ id: uid(), at: timing.at, kind, laps: timing.laps, total: timing.total, distance_laps: kind === "race" ? (timing.laps.length || null) : null,

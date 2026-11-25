@@ -752,3 +752,13 @@ Object.assign(SL_I18N.en, {                          // v0.11
   learn_sample: "Sample library for the prototype: titles and summaries stand in for real videos and articles.",
   video_soon: "Video coming soon", article_soon: "Article coming soon", related: "Related"
 });
+Object.assign(SL_I18N.en, {                          // v0.12
+  pbs_short: "PBs", laps_per_session: "Laps", minutes_per_session: "Time skating", last_n_sessions: "Last {n} sessions", faster_up: "faster is higher",
+  trends_empty: "Trends appear after two sessions. Time a few laps in a session to see best lap and score trends.",
+  adv_split: "Finish every timed lap with a split at the line, so it is automatic on race day.",
+  adv_warmup: "Warm up for 10 minutes with easy laps before the first fast set.",
+  live_timeline: "Session so far", live_now: "Skating now", live_resting: "Resting. The next set will appear here.", live_waiting: "Laps will appear here as they are skated.",
+  live_prace: "Practice race · {n} laps ({m} m)", live_single: "Single lap",
+  live_need_sensor: "Connect a sensor to see laps, practice races and PBs build up live. You can still time laps by hand.",
+  live_auto_note: "Prototype: laps are simulated and arrive 8× faster than real. A break of a minute or more closes the laps before it into a practice race."
+});
