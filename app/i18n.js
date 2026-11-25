@@ -784,9 +784,7 @@ Object.assign(SL_I18N.en, {                          // v0.15 PB achievements
   seg_start12: "Start: pushes 1 and 2", seg_start36: "Start: pushes 3 to 6", seg_t6: "Start: six pushes in", seg_half_s: "Shorter half-lap", seg_half_l: "Longer half-lap",
   seg_xpush: "Crossover push", seg_xrate: "Crossover rhythm", seg_spush: "Straight push", seg_srate: "Straight rhythm", seg_run2: "2 laps in a row", seg_run4: "4 laps in a row"
 });
-Object.assign(SL_I18N.en, {                          // v0.16 crossover glides
-  glide_k: "Glide", glide_h: "Glides in crossovers", glide_line: "Glide {s} s, {w}", glide_live: "{s} s without a push in a bend, lap {l}",
-  glide_where_live: "Lap {l} of {n}", glides_n: "{n} glides",
-  glide_how: "A glide is 1.2 s or more without a push in a bend, usually from being boxed in or holding back. It costs speed that has to be won back on the straight. Each one takes 10 points off attack.",
-  adv_glide: "Keep pushing through the bends: no glides at race pace. If boxed in, keep the crossovers going and look for the gap on the straight."
+Object.assign(SL_I18N.en, {                          // v0.16 crossover glides (Insights and reports only)
+  glide_k: "Glide", glides_n: "{n} glides", glide_h: "Glides in crossovers", glide_practice: "practice",
+  glide_how: "A glide is 1.2 s or more without a push in a bend, from being boxed in or holding back. It costs speed that has to be won back on the straight."
 });
