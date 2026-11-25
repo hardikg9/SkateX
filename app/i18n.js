@@ -772,7 +772,8 @@ Object.assign(SL_I18N.en, {                          // v0.13 insights
 });
 Object.assign(SL_I18N.en, {                          // v0.14 profile
   ins_profile_h: "Best profile · {rink}", ins_profile_d: "What {name}'s best in each part of a race adds up to, from {from}. It rises as any part improves.",
-  ins_ideal: "Ideal lap {v} s (best shorter + best longer half-lap). Big numbers: potential standing-start time, with today's PB and the gap.",
+  ins_ideal: "Ideal lap {v} s (best shorter + best longer half-lap). Big numbers: potential time (flying lap, or from a standing start), with the PB and the gap.",
+  cap_fly: "1 flying lap",
   ins_profile_more: "Segment bests", ins_vs_h: "Against his best profile",
   live_vs_ideal: "Average lap {a} s · {p}% of ideal-lap pace"
 });

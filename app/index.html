@@ -250,7 +250,7 @@
   table.mt { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; } table.mt th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 700; padding: 4px 4px 6px; }
   table.mt td { padding: 6px 4px; border-top: 1px solid var(--line); } table.mt td.chg { color: var(--muted); font-size: 12px; } table.mt b.up2 { color: var(--lime); }
   ol.recs { margin: 0; padding-left: 20px; } ol.recs li { margin: 6px 0; font-size: 14px; } ol.recs li::marker { color: var(--cyan); font-weight: 800; }
-  .capgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .capgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .cap { background: var(--midnight); border: 1px solid var(--line); border-radius: 14px; padding: 9px 10px; display: flex; flex-direction: column; gap: 1px; }
   .cap .l { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); } .cap b { font-family: var(--display); font-size: 24px; line-height: 1.05; }
   .cap .gap { font-size: 11.5px; font-weight: 700; color: var(--lime); }
@@ -1882,7 +1882,7 @@ const PROFILES = { vn: {
   segs: [["Start: pushes 1 and 2", "1.07 g", "17 Nov"], ["Start: pushes 3 to 6", "1.03 g", "24 Nov"], ["Start: six pushes in", "1.69 s", "17 and 21 Nov"],
          ["Shorter half-lap", "10.4 s", "21 and 24 Nov"], ["Longer half-lap", "10.85 s", "21 and 24 Nov"], ["Crossover push", "0.95 g", "top 10%"], ["Crossover rhythm", "145/min", "top 10%"],
          ["Straight push", "1.26 g", "top 10%"], ["Straight rhythm", "118/min", "top 10%"], ["Best 2 laps in a row", "21.9 s avg", "24 Nov"], ["Best 4 laps in a row", "22.3 s avg", "24 Nov"]],
-  ideal: 21.25, cap: [[200, 23.5, 24.45], [600, 67.2, 70.9], [1000, 112.8, 118.9]] } };
+  ideal: 21.25, cap: [["fly", 21.25, 21.5], [200, 23.5, 24.45], [600, 67.2, 70.9], [1000, 112.8, 118.9]] } };
 const ANALYSED = [{
   id: "vn-2026-11-24", rink: "vn", date: "2026-11-24", title: "VN practice", start: "9:17 pm", mins: 84, score: 80,
   parts: { speed: 100, attack: 55, steady: 44, volume: 100, progress: 100 },
@@ -1937,7 +1937,7 @@ function profileCard(P, A) {                          // the skater's bests at t
   const r = S.rinks.find(z => z.id === P.rink);
   return `<div class="card ins"><div class="insh"><b>${T("ins_profile_h", { rink: esc(r ? r.short : "") })}</b><span class="badge pro">${T("needs_pro")}</span></div>
     <p class="meta" style="margin:0 0 8px">${T("ins_profile_d", { from: P.from, name: esc((currentSkater() || {}).display_name || "") })}</p>
-    <div class="capgrid">${P.cap.map(([m, pot, pb]) => `<div class="cap"><span class="l">${m} m</span><b>${m >= 600 ? fmtLap(pot) : pot.toFixed(1)}</b><span class="meta">PB ${m >= 600 ? fmtLap(pb) : pb}</span><span class="gap">−${(pb - pot).toFixed(1)} s</span></div>`).join("")}</div>
+    <div class="capgrid">${P.cap.map(([m, pot, pb]) => `<div class="cap"><span class="l">${m === "fly" ? T("cap_fly") : m + " m"}</span><b>${m >= 600 ? fmtLap(pot) : pot.toFixed(m === "fly" ? 2 : 1)}</b><span class="meta">PB ${m >= 600 ? fmtLap(pb) : pb}</span><span class="gap">−${(pb - pot).toFixed(m === "fly" ? 2 : 1)} s</span></div>`).join("")}</div>
     <p class="meta" style="margin:8px 0 4px">${T("ins_ideal", { v: P.ideal })}</p>
     <details class="tli"><summary>${T("ins_profile_more")}</summary><table class="mt">${P.segs.map(([k, v, f]) => `<tr><td>${k}</td><td><b>${v}</b></td><td class="chg">${f}</td></tr>`).join("")}</table></details></div>`;
 }
