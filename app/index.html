@@ -256,6 +256,9 @@
   .cap .gap { font-size: 11.5px; font-weight: 700; color: var(--lime); }
   .pc { height: 4px; border-radius: 2px; background: var(--midnight); margin: 3px 0 1px; overflow: hidden; } .pc i { display: block; height: 100%; }
   table.mt b.dn2 { color: var(--signal); }
+  .pbrow { display: grid; grid-template-columns: 62px 1fr auto; column-gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .pbrow:last-child { border-bottom: 0; } .pbrow .pbk { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .pbrow b { font-family: var(--display); font-size: 19px; } .pbrow .was { grid-column: 2 / 4; font-size: 12px; color: var(--muted); margin-top: -2px; }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -305,7 +308,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.14";
+const APP_VERSION = "0.15";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -415,12 +418,48 @@ function sessionScore(s) {
 }
 const scoreOf = s => { const x = sessionScore(s); return x ? x.total : null; };
 const band = v => v == null ? "" : v >= 80 ? "top" : v >= 65 ? "good" : v >= 50 ? "ok" : "low";
-function isPB(s) {                                    // fastest lap ever at this rink
-  if (!counts(s)) return false; const b = bestLapOf(s); if (b === null) return false;
-  const k = S.skaters.find(z => z.id === s.skater_id);
-  const prev = sessionsFor(k).filter(x => x.rink_id === s.rink_id && counts(x) && x.date < s.date).map(bestLapOf).filter(v => v);
-  return prev.length > 0 && b < Math.min(...prev);
+// PB achievements. Three kinds: a lap, a race (practice race by laps, meet race by distance) and a segment (start, crossovers, straights,
+// half-laps, laps in a row). Any improvement on the skater's previous best counts. Times only compare at the same rink;
+// push strength and rhythm compare across rinks. Segments come from the analysed sensor data (s.segs, or race.segs at a meet).
+const SEGS = [["start12", "g", "hi", 0], ["start36", "g", "hi", 0], ["t6", "s", "lo", 0], ["half_s", "s", "lo", 1], ["half_l", "s", "lo", 1],
+              ["xpush", "g", "hi", 0], ["xrate", "min", "hi", 0], ["spush", "g", "hi", 0], ["srate", "min", "hi", 0], ["run2", "s", "lo", 1], ["run4", "s", "lo", 1]];
+const fmtSeg = (v, u) => u === "g" ? v.toFixed(2) + " g" : u === "min" ? Math.round(v) + "/min" : v.toFixed(2) + " s";
+function segHist(kid) {                               // every analysed record with segment data: sessions and meet races
+  const out = S.sessions.filter(x => x.skater_id === kid && x.segs && counts(x)).map(x => ({ date: x.date, rink: x.rink_id, segs: x.segs, id: x.id }));
+  (S.events || []).filter(e => e.skater_id === kid).forEach(e => e.races.forEach(r => { if (r.segs && r.who !== "other") out.push({ date: r.day || e.date, rink: e.rink_id, segs: r.segs, id: r.id }); }));
+  return out;
 }
+function segPBs(kid, rec) {
+  const H = segHist(kid).filter(h => h.id !== rec.id && h.date < rec.date), out = [];
+  SEGS.forEach(([key, u, dir, rk]) => { const v = rec.segs[key]; if (v == null) return;
+    const pv = H.filter(h => !rk || h.rink === rec.rink).map(h => h.segs[key]).filter(z => z != null); if (!pv.length) return;
+    const b = dir === "hi" ? Math.max(...pv) : Math.min(...pv);
+    if (dir === "hi" ? v > b : v < b) out.push({ kind: "seg", key, label: T("seg_" + key), v: fmtSeg(v, u), was: fmtSeg(b, u) }); });
+  return out;
+}
+const raceBests = x => { const o = {}; (x.items || []).forEach(i => { if (i.kind === "race" && i.distance_laps && i.total) o[i.distance_laps] = Math.min(o[i.distance_laps] || 1e9, i.total); }); return o; };
+function pbsOf(s) {
+  if (!counts(s)) return [];
+  const k = S.skaters.find(z => z.id === s.skater_id), prev = sessionsFor(k).filter(x => x.rink_id === s.rink_id && counts(x) && x.date < s.date), out = [];
+  const b = bestLapOf(s), pl = prev.map(bestLapOf).filter(v => v);
+  if (b !== null && pl.length && b < Math.min(...pl)) out.push({ kind: "lap", label: T("pb_k_lap"), v: fmtLap(b) + " s", was: fmtLap(Math.min(...pl)) + " s" });
+  const mine = raceBests(s), lm = (rinkOf(s) || {}).lap_m || 200;
+  Object.keys(mine).forEach(n => { const pv = prev.map(x => raceBests(x)[n]).filter(Boolean);
+    if (pv.length && mine[n] < Math.min(...pv)) out.push({ kind: "race", label: T("pb_k_prace", { n, m: n * lm }), v: fmtRT(mine[n]), was: fmtRT(Math.min(...pv)) }); });
+  if (s.segs) out.push(...segPBs(s.skater_id, { date: s.date, rink: s.rink_id, segs: s.segs, id: s.id }));
+  return out;
+}
+function racePBs(e, x) {                              // a meet race: race time at this distance and rink, plus its segments
+  if (x.who === "other") return [];
+  const out = [], t0 = raceTime(x), day = x.day || e.date;
+  if (t0) { const pv = (S.events || []).filter(z => z.skater_id === e.skater_id && z.rink_id === e.rink_id).flatMap(z => z.races.filter(r => r.who !== "other" && r.m === x.m && r.id !== x.id && (r.day || z.date) < day)).map(raceTime).filter(Boolean);
+    if (pv.length && t0 < Math.min(...pv)) out.push({ kind: "race", label: T("pb_k_race", { m: x.m }), v: fmtRT(t0), was: fmtRT(Math.min(...pv)) }); }
+  if (x.segs) out.push(...segPBs(e.skater_id, { date: day, rink: e.rink_id, segs: x.segs, id: x.id }));
+  return out;
+}
+const isPB = s => pbsOf(s).length > 0;
+const PBC = { lap: "var(--lime)", race: "var(--cyan)", seg: "var(--signal)" };
+const pbRows = L => L.map(p => `<div class="pbrow"><span class="pbk" style="color:${PBC[p.kind]}">${T("pb_kind_" + p.kind)}</span><span class="pl">${p.label}</span><b>${p.v}</b><span class="was">${T("pb_was", { v: p.was })}</span></div>`).join("");
 const scoreBox = v => `<div class="score ${band(v)}"><b>${v == null ? "–" : v}</b><span>${T("score")}</span></div>`;
 function openSession(kid, rinkId, at) {             // a recent stopwatch session to add this timing to
   return S.sessions.filter(x => x.skater_id === kid && x.rink_id === rinkId && x.source === "stopwatch" && (at - new Date(x.end)) < WINDOW_H * 36e5 && (at - new Date(x.end)) > -6e4)
@@ -671,12 +710,12 @@ screens.home = () => {
   const ann = role() === "coach" ? S.club.announcements.slice(-2).reverse() : [];
   const aiBtn = k && S.plan === "elite" ? `<button class="secondary" onclick="go('ai')">${T("ai_open")}</button>` : "";
   const wsc = week.map(scoreOf).filter(v => v != null), avgSc = wsc.length ? Math.round(wsc.reduce((a, c) => a + c, 0) / wsc.length) : null;
-  const pbs = week.filter(isPB).length;
+  const pbs = week.reduce((a, x) => a + pbsOf(x).length, 0);
   const cheer = !week.length ? T("cheer_start") : avgSc != null && avgSc >= 75 ? T("cheer_great") : week.length >= 3 ? T("cheer_busy") : T("cheer_good");
   const open = S.homeOpen || null, wk = [...week].sort((a, b) => b.date.localeCompare(a.date)), pbS = wk.filter(isPB);
   const bestS = best ? wk.find(x => bestLapOf(x) === best) : null, bestR = bestS && rinkOf(bestS);
   const panel = open === "sess" ? (wk.map(sessionCard).join("") || `<div class="card meta">${T("no_data_yet")}</div>`)
-    : open === "pb" ? (pbS.map(sessionCard).join("") || `<div class="card meta">${T("no_pb_week")}</div>`)
+    : open === "pb" ? (pbS.length ? `<div class="card">${pbS.map(x => `<div class="tap" data-sess="${x.id}"><div class="meta" style="margin:4px 0 0">${esc(dfmt(new Date(x.date), { weekday: "short", day: "numeric", month: "short" }))} · ${esc((rinkOf(x) || {}).name || "")} ›</div>${pbRows(pbsOf(x))}</div>`).join("")}</div>` : `<div class="card meta">${T("no_pb_week")}</div>`)
     : open === "best" && bestS ? `<div class="card"><div class="bigscore"><div class="score top" style="flex-basis:96px"><b style="font-size:34px">${fmtLap(best)}</b><span>${T("seconds")}</span></div>
         <div><b>${T("best_lap_week")}</b><div class="meta">${esc(bestR ? bestR.name : "")} · ${esc(dfmt(new Date(bestS.date), { weekday: "short", day: "numeric", month: "short" }))}</div></div></div>
         <div class="bars">${wk.filter(bestLapOf).map(x => { const v = bestLapOf(x), w2 = Math.round(best / v * 100); return `<div class="br"><span>${esc(dfmt(new Date(x.date), { weekday: "short", day: "numeric" }))} · ${esc((rinkOf(x) || {}).short || "")}</span><span class="tr"><i style="width:${w2}%;background:${v === best ? "var(--lime)" : "var(--cyan)"}"></i></span><b>${fmtLap(v)}</b></div>`; }).join("")}</div>
@@ -996,9 +1035,9 @@ screens.session = () => {
     ${x.source === "sensor" ? "" : `<span class="badge unv">${T(x.source === "manual" ? "not_counted" : "hand_timed")}</span>`}</p>
   ${(() => { const sc = sessionScore(x); if (!sc) return ""; const P = [["speed", "sc_speed", "var(--rink)"], ["attack", "sc_attack", "var(--signal)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "#93A0B8"]];
     return `<div class="card"><div class="bigscore">${scoreBox(sc.total)}<div><div style="font-family:var(--display);font-style:italic;font-weight:800;text-transform:uppercase;font-size:24px;line-height:1">${T("session_score")}</div>
-      ${isPB(x) ? `<div style="margin-top:6px"><span class="pb">PB</span> ${T("pb_line", { v: fmtLap(b) })}</div>` : `<div class="meta">${T("score_how")}</div>`}</div></div>
+      ${isPB(x) ? `<div style="margin-top:6px"><span class="pb">PB</span> ${T("pb_n", { n: pbsOf(x).length })}</div>` : `<div class="meta">${T("score_how")}</div>`}</div></div>
       <div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${Math.round(sc.parts[k2] * 100)}%;background:${c}"></i></span><b>${Math.round(sc.parts[k2] * 100)}</b></div>`).join("")}</div></div>`; })()}
-  ${newBest ? `<div class="card"><span class="badge pro">${T("new_best")}</span><div style="font-size:20px;font-weight:750;margin-top:6px">${T("beat_yourself", { v: fmtLap(b), rink: esc(r.short) })}</div><div class="meta">${T("previous_best", { v: fmtLap(st.best) })}</div></div>` : ""}
+  ${isPB(x) ? `<div class="card"><div class="insh"><b>${T("pb_card_h")}</b><span class="pb">PB</span></div>${pbRows(pbsOf(x))}<div class="hint">${T("pb_how")}</div></div>` : ""}
   <div class="stats"><div class="stat"><div class="v">${okItems(x).length}</div><div class="l">${T("timings")}</div></div>
     <div class="stat"><div class="v">${lapsAll(x).length}</div><div class="l">${T("laps_timed")}</div></div>
     <div class="stat"><div class="v">${b ? fmtLap(b) : "–"}</div><div class="l">${T("best_lap")}${b ? " (s)" : ""}</div></div></div>
@@ -1148,11 +1187,15 @@ function loadDemo() {
     [6, prav, "vn", 1, 7, [["laps", 3, 24.1], ["race", 3, 24.0]]],
     [3, prav, "mm", 1, 17, [["laps", 3, 18.5], ["laps", 5, 18.7], ["laps", 3, 18.5]]],
     [1, prav, "mm", 1, 17, [["laps", 5, 18.3], ["race", 3, 18.0]]]];
+  const SEGDEMO = { 10: [1.00, .95, 1.80, .90, 138, 1.18, 112], 6: [1.07, .98, 1.72, .93, 141, 1.22, 115], 3: [1.04, 1.01, 1.69, .95, 145, 1.26, 116], 1: [1.05, 1.03, 1.70, .94, 143, 1.24, 118] };
   plan.forEach(([ago, k, rk, si, h, tl]) => {
     const d0 = new Date(now); d0.setDate(now.getDate() - ago); d0.setHours(h, 10, 0, 0);
     let t0 = +d0; const items = tl.map(([kind, n, base]) => { const L = laps(n, base, kind === "race" ? -.15 : .12); const it = { id: uid(), at: new Date(t0).toISOString(), kind, laps: L,
       total: +L.reduce((a, b) => a + b, 0).toFixed(1), distance_laps: kind === "race" ? n : null, setup_id: k.setups[si].id, note: null }; t0 += 14 * 6e4; return it; });
-    S.sessions.push({ id: uid(), skater_id: k.id, date: d0.toISOString(), end: new Date(t0 - 10 * 6e4).toISOString(), rink_id: rk, setup_id: k.setups[si].id, source: "stopwatch", verified: false, items, recorded_by: "parent" });
+    const sg = k === prav && SEGDEMO[ago];
+    const segs = sg ? (() => { const L2 = items.flatMap(i => i.laps), b = Math.min(...L2), run = n => Math.min(...items.filter(i => i.laps.length >= n).flatMap(i => i.laps.slice(0, i.laps.length - n + 1).map((_, j) => i.laps.slice(j, j + n).reduce((p, c) => p + c, 0) / n)));
+      return { start12: sg[0], start36: sg[1], t6: sg[2], xpush: sg[3], xrate: sg[4], spush: sg[5], srate: sg[6], half_s: +(b * .49).toFixed(2), half_l: +(b * .51).toFixed(2), run2: +run(2).toFixed(2), run4: +run(4).toFixed(2) }; })() : null;
+    S.sessions.push({ id: uid(), skater_id: k.id, date: d0.toISOString(), end: new Date(t0 - 10 * 6e4).toISOString(), rink_id: rk, setup_id: k.setups[si].id, source: "stopwatch", verified: false, items, recorded_by: "parent", segs });
   });
   const m = new Date(now); m.setDate(now.getDate() - 5); m.setHours(18, 0, 0, 0);
   S.sessions.push({ id: uid(), skater_id: prav.id, date: m.toISOString(), end: m.toISOString(), rink_id: "mm", setup_id: prav.setups[1].id, type: "training", source: "manual", verified: false,
@@ -1169,9 +1212,9 @@ function loadDemo() {
     notes: "First race: poor start reaction compared to others; one false start by another skater\nSecond race: leading until the 3rd lap, then overtaken and did not defend well\nSecond race: no split finish, lost 3rd place in a photo finish",
     created: now.toISOString(), races: [
       { id: uid(), m: 500, round: "round_final", who: "self", day: dayKey(y), position: 4, official_s: null, photo_finish: false, note: "", timing: { at: y.toISOString(), laps: [], total: 65.1 },
-        sensor: { start_s: 0.0, start_practice_s: 0.3, rate: 131, rate_practice: 129, push: 1.20, push_practice: 1.20, push_late: 0.98, turns: 51, turns_practice: 42 } },
+        sensor: { start_s: 0.0, start_practice_s: 0.3, rate: 131, rate_practice: 129, push: 1.20, push_practice: 1.20, push_late: 0.98, turns: 51, turns_practice: 42 }, segs: { start12: .82, start36: .51, t6: 1.99, xpush: .96, xrate: 133, spush: 1.08, srate: 101 } },
       { id: uid(), m: 1000, round: "round_final", who: "self", day: dayKey(y), position: 4, official_s: null, photo_finish: true, note: "Phone battery died after lap 4; laps 4-5 estimated", timing: { at: y.toISOString(), laps: [31.8, 28.5, 24.4, 23.7, 23.3], total: 131.7 },
-        sensor: { start_s: 1.0, start_practice_s: 0.3, rate: 117, rate_practice: 116, push: 0.90, push_practice: 1.06, push_late: 0.95, turns: 63, turns_practice: 56 } },
+        sensor: { start_s: 1.0, start_practice_s: 0.3, rate: 117, rate_practice: 116, push: 0.90, push_practice: 1.06, push_late: 0.95, turns: 63, turns_practice: 56 }, segs: { start12: .39, start36: .84, t6: 2.18, xpush: .66, xrate: 130, spush: .96, srate: 97 } },
       { id: uid(), m: 1000, round: "round_final", who: "other", other_label: "Bib 21 (sample)", day: dayKey(y), position: 3, official_s: null, photo_finish: true, note: "", timing: { source: "video", at: y.toISOString(), laps: [], total: 131.6 }, sensor: null },
       { id: uid(), m: 1000, round: "round_final", who: "other", other_label: "Winner (sample)", day: dayKey(y), position: 1, official_s: null, photo_finish: false, note: "", timing: { source: "video", at: y.toISOString(), laps: [], total: 124.8 }, sensor: null }], closed: false });
   persist(); go("home"); render();
@@ -1503,7 +1546,7 @@ screens.live.init = () => {
     const now = new Date().toISOString(), on = L.sensor && L.sensor.device;
     const s = { id: uid(), skater_id: L.skater_id, date: L.start, end: now, rink_id: L.rink_id, setup_id: (L.changes.find(c => c.setup_id) ? L.items[0] && L.items[0].setup_id : null) || L.setup_id,
                 source: "stopwatch", verified: false, items: L.items, recorded_by: role(), notes: L.notes.map(n => `${n.t_s != null ? mmss(n.t_s) : tod(n.at)} ${n.text}`).join("\n") || null,
-                sensor: on ? L.sensor : null, changes: L.changes, duration_s: Math.round(run() / 1000) };
+                sensor: on ? L.sensor : null, changes: L.changes, duration_s: Math.round(run() / 1000), segs: L.auto && L.auto.segs && Object.keys(L.auto.segs).length ? L.auto.segs : null };
     const A = L.auto; if (A) { closeGroup(L); A.groups.forEach(g => s.items.push({ id: uid(), at: g.at, kind: g.laps.length >= 2 ? "race" : "laps", laps: g.laps.map(x => x.t), total: +g.laps.reduce((p, x) => p + x.t, 0).toFixed(2), distance_laps: g.laps.length >= 2 ? g.laps.length : null, setup_id: L.setup_id, source: "sensor" })); }
     clearInterval(window._liveT);
     S.sessions.push(s); S.live = null; S.viewSession = s.id; S.selDay = dayKey(new Date(s.date)); persist(); toast(t("session_saved")); go("session");
@@ -1521,7 +1564,7 @@ function liveAuto(L, run) {
   L.auto = L.auto || { cur: [], groups: [], next: 4, setLen: 4, rest: 0 };
   const A = L.auto, SPEED = 8;                           // demo: the session runs 8x fast, so a lap arrives every ~3 s
   const draw = (fresh) => {
-    const all = [...A.groups.flatMap(g => g.laps), ...A.cur], best = all.length ? Math.min(...all.map(x => x.t)) : null, pbs = all.filter(x => x.pb).length;
+    const all = [...A.groups.flatMap(g => g.laps), ...A.cur], best = all.length ? Math.min(...all.map(x => x.t)) : null, pbs = all.filter(x => x.pb).length + A.groups.filter(g => g.seg).length;
     const races = A.groups.filter(g => g.laps.length >= 2).length;
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
     set("#ls-laps", all.length); set("#ls-races", races); set("#ls-km", (all.length * m / 1000).toFixed(1)); set("#ls-pb", pbs);
@@ -1533,9 +1576,9 @@ function liveAuto(L, run) {
     const feed = $("#lfeed"); if (!feed) return;
     feed.innerHTML = (A.cur.length ? `<div class="cur ${fresh ? "new" : ""}"><div class="k">● ${T("live_now")} · ${T("laps_n", { n: A.cur.length })}</div>${A.cur.map(chip).join("")}</div>` : `<div class="meta" style="padding:6px 0">${A.groups.length ? T("live_resting") : T("live_waiting")}</div>`)
       + A.groups.slice().reverse().map((g, i) => { const tt = g.laps.reduce((p, x) => p + x.t, 0), gb = Math.min(...g.laps.map(x => x.t)), n = A.groups.length - i;
-        return `<div class="lrow ${fresh && i === 0 && !A.cur.length ? "new" : ""}"><div class="pos ${g.laps.some(x => x.pb) ? "pod" : ""}" style="flex-basis:38px;height:38px;font-size:15px">${g.laps.length >= 2 ? "R" + A.groups.filter((x, j) => j < n && x.laps.length >= 2).length : "L"}</div>
+        return `<div class="lrow ${fresh && i === 0 && !A.cur.length ? "new" : ""}"><div class="pos ${g.laps.some(x => x.pb) || g.seg ? "pod" : ""}" style="flex-basis:38px;height:38px;font-size:15px">${g.laps.length >= 2 ? "R" + A.groups.filter((x, j) => j < n && x.laps.length >= 2).length : "L"}</div>
           <div class="mid"><b>${g.laps.length >= 2 ? T("live_prace", { n: g.laps.length, m: g.laps.length * m }) : T("live_single")}</b> <span class="meta">${mmss(g.laps[0].s - g.laps[0].t)}</span>
-          <div>${g.laps.map(chip).join("")}</div>${(() => { const P = PROFILES[L.rink_id]; if (!P || g.laps.length < 2) return ""; const av = tt / g.laps.length; return `<div class="meta" style="margin-top:4px">${T("live_vs_ideal", { a: fmtLap(av), p: Math.round(P.ideal / av * 100) })}</div>`; })()}</div><div class="tm" style="font-family:var(--display);font-size:20px;font-weight:700">${fmtRT(tt)}</div></div>`; }).join("");
+          <div>${g.laps.map(chip).join("")}</div>${(() => { const P = PROFILES[L.rink_id]; if (!P || g.laps.length < 2) return ""; const av = tt / g.laps.length; return `<div class="meta" style="margin-top:4px">${T("live_vs_ideal", { a: fmtLap(av), p: Math.round(P.ideal / av * 100) })}</div>`; })()}${g.seg ? `<div class="meta" style="margin-top:4px"><span class="pb">PB</span> ${esc(g.seg.label)} <b>${g.seg.v}</b> · ${T("pb_was", { v: g.seg.was })}</div>` : ""}</div><div class="tm" style="font-family:var(--display);font-size:20px;font-weight:700">${fmtRT(tt)}</div></div>`; }).join("");
   };
   const newT = () => +(typ * (A.cur.length ? 1 : 1.12) + (Math.random() - .45) * 1.6 + A.cur.length * .35).toFixed(2);
   const step = () => {
@@ -1549,7 +1592,12 @@ function liveAuto(L, run) {
     const allBest = [...A.groups.flatMap(g => g.laps), ...A.cur].reduce((p, x) => Math.min(p, x.t), Infinity);
     if (pbBase && lap.t < pbBase && lap.t < allBest) lap.pb = true;
     A.cur.push(lap); A.lapStart = A.sim; A.pend = newT();
-    if (A.cur.length >= A.setLen) { closeGroup(L); A.rest = 90; A.pend = null; }   // a break closes the set into a practice race
+    if (A.cur.length >= A.setLen) { closeGroup(L); A.rest = 90; A.pend = null;   // a break closes the set into a practice race
+      const H = segHist(L.skater_id), g = A.groups.at(-1); A.segs = A.segs || {};
+      if (H.length && Math.random() < .45) { const [key, u, dir, rk] = SEGS[Math.floor(Math.random() * SEGS.length)];   // demo: the set's analysis beat a segment best
+        const pv = H.filter(h => !rk || h.rink === L.rink_id).map(h => h.segs[key]).filter(z => z != null);
+        if (pv.length) { const b = dir === "hi" ? Math.max(...pv, A.segs[key] || 0) : Math.min(...pv, A.segs[key] || 1e9), v = +(dir === "hi" ? b * 1.015 : b * .985).toFixed(u === "min" ? 0 : 2);
+          A.segs[key] = v; g.seg = { label: T("seg_" + key), v: fmtSeg(v, u), was: fmtSeg(b, u) }; } } }
     persist(); draw(true);
   };
   draw(false); window._liveT = setInterval(step, 1000);
@@ -1638,8 +1686,8 @@ screens.race = () => {
   const days = eventDays(e);
   const row = x => { const other = x.who === "other", p = x.position;
     return `<div class="rrow" data-rc="${x.id}"><div class="pos ${p && p <= 3 ? "pod" : p === 4 ? "near" : ""}">${p ? ord(p) : "–"}</div>
-      <div class="mid"><b>${esc(raceLabel(x))}</b>${x.photo_finish ? ` <span class="badge">${T("photo_finish")}</span>` : ""}${x.qualified != null ? ` <span class="badge ${x.qualified ? "pro" : ""}">${T(x.qualified ? "qualified" : "out")}</span>` : ""}
-        <div class="meta">${other ? `<span class="badge unv">${T("field")}</span> ${esc(x.other_label || t("someone_else"))}` : esc(k ? k.display_name : "")}</div></div>
+      <div class="mid"><b>${esc(raceLabel(x))}</b>${x.photo_finish ? ` <span class="badge">${T("photo_finish")}</span>` : ""}${x.qualified != null ? ` <span class="badge ${x.qualified ? "pro" : ""}">${T(x.qualified ? "qualified" : "out")}</span>` : ""}${racePBs(e, x).length ? ' <span class="pb">PB</span>' : ""}
+        ${racePBs(e, x).length ? `<div class="meta" style="color:var(--signal)">${racePBs(e, x).map(p => esc(p.label) + " " + p.v).join(" · ")}</div>` : ""}<div class="meta">${other ? `<span class="badge unv">${T("field")}</span> ${esc(x.other_label || t("someone_else"))}` : esc(k ? k.display_name : "")}</div></div>
       <div class="tm">${raceTime(x) ? fmtRT(raceTime(x)) : "–"}</div></div>`; };
   const mine = selfRaces(e), places = mine.map(x => x.position).filter(Boolean), bestP = places.length ? Math.min(...places) : null;
   return `${back("races", "")}
@@ -1880,7 +1928,7 @@ screens.planadd.init = () => {
 const PROFILES = { vn: {
   rink: "vn", built: "2026-11-24", from: "17, 21 and 24 Nov",
   segs: [["Start: pushes 1 and 2", "1.07 g", "17 Nov"], ["Start: pushes 3 to 6", "1.03 g", "24 Nov"], ["Start: six pushes in", "1.69 s", "17 and 21 Nov"],
-         ["Shorter half-lap", "10.4 s", "21 and 24 Nov"], ["Longer half-lap", "10.85 s", "21 and 24 Nov"], ["Crossover push", "0.95 g", "top 10%"], ["Crossover rhythm", "145/min", "top 10%"],
+         ["Shorter half-lap", "10.4 s", "21 and 24 Nov"], ["Longer half-lap", "10.85 s", "21 and 24 Nov"], ["Crossover push", "0.96 g", "22 Nov race (any rink)"], ["Crossover rhythm", "145/min", "top 10%"],
          ["Straight push", "1.26 g", "top 10%"], ["Straight rhythm", "118/min", "top 10%"], ["Best 2 laps in a row", "21.9 s avg", "24 Nov"], ["Best 4 laps in a row", "22.3 s avg", "24 Nov"]],
   ideal: 21.25, cap: [["fly", 21.25, 21.5], [200, 23.5, 24.45], [600, 67.2, 70.9], [1000, 112.8, 118.9]] } };
 const ANALYSED = [{
@@ -1902,7 +1950,11 @@ const ANALYSED = [{
   compare: [["Laps skated", "~13", "~40", "~59"], ["Fast laps", "2", "14", "27"], ["Laps under 23 s", "1", "4", "14"], ["Fastest lap", "21.7 s", "22.5 s", "21.5 s"], ["Typical fast lap", "23.2 s", "23.2 s", "22.8 s"], ["Pushes per lap", "50", "46", "44"], ["Distance per push", "4.0 m", "4.35 m", "4.55 m"]],
   recs: [["Even out the 1000 m", "Lap 2 averaged 22.0 s, lap 5 23.7 s. Aim for every lap at about 22.5 s, holding 115+ pushes per minute."], ["Keep the long push", "44 pushes per lap is the new standard. When tired, push more often, not shorter."],
          ["Train the last two laps", "Push strength fell 13% by lap 5. Add 2-lap finishes at the end of sets."], ["Sharpen the first five pushes", "Start early in the session, aim for 14+ pushes in the first 5 s."], ["Confirm the best lap", "Time a flying lap with taps to make 21.5 s official."]],
-  next: "Lap 5 within 0.8 s of lap 2 · 44 pushes per lap or fewer · 14+ pushes in the first 5 s of the first start"
+  next: "Lap 5 within 0.8 s of lap 2 · 44 pushes per lap or fewer · 14+ pushes in the first 5 s of the first start",
+  pbs: [{ kind: "lap", label: "Fastest lap at VN", v: "21.5 s", was: "22.2 s" }, { kind: "seg", label: "Shorter half-lap", v: "10.40 s", was: "10.77 s" },
+        { kind: "seg", label: "Longer half-lap", v: "10.85 s", was: "10.87 s" }, { kind: "seg", label: "Start: pushes 3 to 6", v: "1.03 g", was: "1.01 g" },
+        { kind: "seg", label: "Crossover rhythm", v: "145/min", was: "141/min" }, { kind: "seg", label: "Straight rhythm", v: "118/min", was: "115/min" },
+        { kind: "seg", label: "2 laps in a row", v: "21.88 s avg", was: "22.77 s" }, { kind: "seg", label: "4 laps in a row", v: "22.34 s avg", was: "23.57 s" }]
 }, {
   id: "bh-2026-11-22", kind: "race", rink: "bh", vsRink: "vn", date: "2026-11-22", title: "FST races", start: "12:20 pm", mins: 35,
   head2: [["4th", "500 m"], ["1:05.1", "time"], ["4th", "1000 m"], ["2:11.7", "time"]],
@@ -1913,7 +1965,8 @@ const ANALYSED = [{
   starts: [["500 m", "pushes 1–2 normal, 3–6 soft", 0, 0], ["1000 m", "first two pushes softest on record", 0, 0]],
   recs: [["Drive off the grid", "All six first pushes at full strength; time them in every practice start."], ["1000 m race plan", "Don't lead slowly: sit 2nd, or hold about 25 s laps."],
          ["Defend lap 3", "Hold the inside line and lift the pace before the pass."], ["Split finish", "Every timed effort ends with a split at the line."]],
-  next: "Pushes 3 to 6 above 0.8 g in every start · no lap slower than 26 s while leading"
+  next: "Pushes 3 to 6 above 0.8 g in every start · no lap slower than 26 s while leading",
+  pbs: [{ kind: "seg", label: "Crossover push (500 m)", v: "0.96 g", was: "0.94 g" }]
 }];
 function insLapChart(A) {                              // every lap of the session against the minute it was skated; faster is higher
   const W = 340, H = 170, x0 = 34, y0 = 12, w = W - x0 - 8, h = H - y0 - 24, lo = 21, hi = 33, pb = 21.8;
@@ -1951,6 +2004,7 @@ screens.insights = () => {
   <div class="nextup ${A.kind === "race" ? "raced" : "striped"}" style="padding-right:24%">${A.kind === "race" ? LANES : ""}<div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
     <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(A.date + "T12:00"), { weekday: "short", day: "numeric", month: "short" }))} · ${A.start} · ${A.mins} min</div>
     <div class="mstats" style="flex-wrap:wrap">${A.head ? `<div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div>` : A.head2.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join("")}</div></div>
+  ${A.pbs ? `<div class="card ins"><div class="insh"><b>${T("pb_card_h")}</b><span class="pb">${A.pbs.length} PB</span></div>${pbRows(A.pbs)}</div>` : ""}
   ${profileCard(PROFILES[A.vsRink || A.rink], A)}
   ${A.vs ? sec(T("ins_vs_h"), "pro", `<table class="mt"><tr><th></th>${A.vs.cols.map(c => `<th>${c}</th>`).join("")}</tr>${A.vs.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td>${rw.slice(2).map(([v, pc]) => `<td><b class="${pc >= 95 ? "up2" : pc < 80 ? "dn2" : ""}">${v}</b><div class="pc"><i style="width:${Math.min(pc, 100)}%;background:${pc >= 95 ? "var(--lime)" : pc < 80 ? "var(--signal)" : "var(--cyan)"}"></i></div><span class="meta" style="font-size:11px">${pc}%</span></td>`).join("")}</tr>`).join("")}</table><div class="hint">${esc(A.vsNote)}</div>`) : ""}
   ${A.parts ? sec(T("ins_score_h"), "pro", `<div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${A.parts[k2]}%;background:${c}"></i></span><b>${A.parts[k2]}</b></div>`).join("")}</div>`) : ""}

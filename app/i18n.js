@@ -777,3 +777,10 @@ Object.assign(SL_I18N.en, {                          // v0.14 profile
   ins_profile_more: "Segment bests", ins_vs_h: "Against his best profile",
   live_vs_ideal: "Average lap {a} s · {p}% of ideal-lap pace"
 });
+Object.assign(SL_I18N.en, {                          // v0.15 PB achievements
+  pb_kind_lap: "Lap", pb_kind_race: "Race", pb_kind_seg: "Segment", pb_was: "was {v}", pb_n: "{n} PB this session", pb_card_h: "PB achievements",
+  pb_how: "Any improvement on a previous best counts: laps, races and every part of a lap. Times compare at the same rink; push strength and rhythm at any rink.",
+  pb_k_lap: "Fastest lap", pb_k_prace: "{n}-lap race ({m} m)", pb_k_race: "{m} m race",
+  seg_start12: "Start: pushes 1 and 2", seg_start36: "Start: pushes 3 to 6", seg_t6: "Start: six pushes in", seg_half_s: "Shorter half-lap", seg_half_l: "Longer half-lap",
+  seg_xpush: "Crossover push", seg_xrate: "Crossover rhythm", seg_spush: "Straight push", seg_srate: "Straight rhythm", seg_run2: "2 laps in a row", seg_run4: "4 laps in a row"
+});
