@@ -800,6 +800,8 @@ Object.assign(SL_I18N.en, {                          // v0.17 current form
   fm_strong: "{part} is your strongest part right now, at {p}% of your best.", fm_focus: "{part} is at {p}% of your best. Lift it and your form climbs fastest.",
   fm_bar: "Your {n} PBs this week raised the bar by {b} points. Peak form now means faster skating than a week ago!",
   form_bar_up: "bar up {b}",
+  fm_up_head: "Up {d} on last week. The work is paying off!",
+  form_sample: "Sample", form_sample_note: "Sample numbers for review: the real score appears after 10 fast timed laps ({n} so far).",
   form_none: "Time some fast laps and your form score shows up here after 10 of them.",
   form_soon: "{n} fast laps so far. {m} more and your form score is ready!"
 });

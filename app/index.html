@@ -503,18 +503,24 @@ function formMsgs(F, d, bar, pbs) {                  // how's my form: always en
 }
 function formCard(k, pbs) {
   const F = formOf(k); if (!F) return "";
-  if (F.score == null) return `<div class="card formc"><div class="bigscore"><div class="score" style="flex-basis:64px;height:64px"><b style="font-size:32px">–</b><span>${T("form")}</span></div>
-    <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b><div class="fmsg">${T(F.n ? "form_soon" : "form_none", { n: F.n, m: 10 - F.n })}</div></div></div></div>`;
+  // Prototype: until there are 10 fast laps, show sample numbers (labelled) so the card can be reviewed.
+  const sample = F.score == null;
+  if (sample) { const Sm = { score: 84, n: 100, rinks: 2, parts: [{ key: "speed", pct: 96, sc: 84 }, { key: "xrate", pct: 97, sc: 94 }, { key: "srate", pct: 93, sc: 86 }, { key: "xpush", pct: 95, sc: 90 }, { key: "spush", pct: 89, sc: 78 }] };
+    const M = formMsgs(Sm, 3, 2, 2);
+    return formHtml(Sm, 3, 2, T("fm_up_head", { d: 3 }), M.filter((m, i2) => i2 !== 1), `<span class="badge" style="margin-left:6px">${T("form_sample")}</span>`, T("form_sample_note", { n: F.n })); }
   const wk = Date.now() - 7 * 864e5, F0w = formOf(k, wk), F0 = F0w && F0w.score != null ? F0w : null, Fo = F0 && formOf(k, Date.now(), wk);
   const d = F0 && Fo ? Fo.score - F0.score : null, bar = Fo ? Fo.score - F.score : 0;   // d: real change, same bests; bar: how much new PBs raised it
   const M = formMsgs(F, d, bar, pbs), head = d != null && d >= 2 ? T("fm_up_head", { d }) : M[0];
+  return formHtml(F, d, bar, head, M.filter(m => m !== head && !(d >= 2 && m === M[1])), "", "");
+}
+function formHtml(F, d, bar, head, rest, tag, note) {
   return `<details class="card formc"><summary><div class="bigscore"><div class="score ${band(F.score)}" style="flex-basis:64px;height:64px"><b style="font-size:32px">${F.score}</b><span>${T("form")}</span></div>
-    <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b><div class="fmsg">${head}</div></div><span class="chev">›</span></div></summary>
+    <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b>${tag}<div class="fmsg">${head}</div></div><span class="chev">›</span></div></summary>
     <div class="meta" style="margin-top:10px">${T("form_from", { n: F.n, r: F.rinks })}</div>
     ${d != null ? `<div class="ftr ${d > 0 ? "up" : d < 0 ? "dn" : ""}">${d > 0 ? "▲ " + d : d < 0 ? "▼ " + -d : "="} ${T("form_vs_week")}${bar > 0 ? ` · <span>${T("form_bar_up", { b: bar })}</span>` : ""}</div>` : ""}
     <div class="fbars">${F.parts.map(p => `<div class="fb"><span>${T("fp_" + p.key)}</span><div class="pc"><i style="width:${Math.min(p.pct, 100)}%;background:${p.sc >= 95 ? "var(--lime)" : p.sc >= 80 ? "var(--cyan)" : "var(--signal)"}"></i></div><b>${p.pct}%</b></div>`).join("")}</div>
-    <div class="howform"><div class="k">${T("form_how_h")}</div>${M.filter(m => m !== head && !(d >= 2 && m === M[1])).map(m => `<p>${m}</p>`).join("")}</div>
-    <div class="hint">${T("form_hint")}</div></details>`;
+    <div class="howform"><div class="k">${T("form_how_h")}</div>${rest.map(m => `<p>${m}</p>`).join("")}</div>
+    <div class="hint">${note ? note + " " : ""}${T("form_hint")}</div></details>`;
 }
 // Crossover glides (1.2 s or more with no push in a bend) are found off the app and shown only in Insights and the reports:
 // in a race there should never be one (a negative); in practice some are expected, so they are noted, not marked.
