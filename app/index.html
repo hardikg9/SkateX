@@ -485,7 +485,7 @@ function formOf(k, at = Date.now(), barAt = at) {        // barAt: whose bests t
       if (L.length < 100 && lapOk(x, v) && rb[x.rink_id] && v <= 1.12 * rb[x.rink_id]) { L.push({ q: Math.min(rb[x.rink_id] / v, 1), m: it.m && it.m[i] }); rinks.add(x.rink_id); } }));
     if (L.length >= 100) break;
   }
-  if (L.length < 10) return null;
+  if (L.length < 10) return { score: null, n: L.length };
   const avg = a => a.reduce((p, c) => p + c, 0) / a.length, M = L.filter(x => x.m), parts = [["speed", avg(L.map(x => x.q)), 400]];
   if (M.length >= 10 && B.xrate) [["xrate", 0], ["srate", 2], ["xpush", 1], ["spush", 3]].forEach(([key, j]) => parts.push([key, avg(M.map(x => x.m[j])) / B[key], 200]));
   const P = parts.map(([key, r, f]) => ({ key, pct: Math.round(r * 100), sc: Math.max(0, Math.min(100, 100 - (1 - r) * f)) }));
@@ -503,7 +503,9 @@ function formMsgs(F, d, bar, pbs) {                  // how's my form: always en
 }
 function formCard(k, pbs) {
   const F = formOf(k); if (!F) return "";
-  const wk = Date.now() - 7 * 864e5, F0 = formOf(k, wk), Fo = F0 && formOf(k, Date.now(), wk);
+  if (F.score == null) return `<div class="card formc"><div class="bigscore"><div class="score" style="flex-basis:64px;height:64px"><b style="font-size:32px">–</b><span>${T("form")}</span></div>
+    <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b><div class="fmsg">${T(F.n ? "form_soon" : "form_none", { n: F.n, m: 10 - F.n })}</div></div></div></div>`;
+  const wk = Date.now() - 7 * 864e5, F0w = formOf(k, wk), F0 = F0w && F0w.score != null ? F0w : null, Fo = F0 && formOf(k, Date.now(), wk);
   const d = F0 && Fo ? Fo.score - F0.score : null, bar = Fo ? Fo.score - F.score : 0;   // d: real change, same bests; bar: how much new PBs raised it
   const M = formMsgs(F, d, bar, pbs), head = d != null && d >= 2 ? T("fm_up_head", { d }) : M[0];
   return `<details class="card formc"><summary><div class="bigscore"><div class="score ${band(F.score)}" style="flex-basis:64px;height:64px"><b style="font-size:32px">${F.score}</b><span>${T("form")}</span></div>
