@@ -260,6 +260,9 @@
   .pbrow { display: grid; grid-template-columns: 62px 1fr auto; column-gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .pbrow:last-child { border-bottom: 0; } .pbrow .pbk { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
   .pbrow b { font-family: var(--display); font-size: 19px; } .pbrow .was { grid-column: 2 / 4; font-size: 12px; color: var(--muted); margin-top: -2px; }
+  .formc summary { list-style: none; cursor: pointer; } .formc summary::-webkit-details-marker { display: none; }
+  .formc .fmsg { font-size: 14px; line-height: 1.35; margin-top: 2px; } .formc .chev { font-size: 26px; color: var(--muted); transition: transform .2s; align-self: center; }
+  .formc[open] .chev { transform: rotate(90deg); }
   .formc .ftr { font-size: 12.5px; font-weight: 700; margin-top: 3px; color: var(--muted); } .formc .ftr.up { color: var(--lime); } .formc .ftr.dn { color: var(--signal); }
   .fbars { margin: 12px 0 4px; display: grid; gap: 7px; } .fb { display: grid; grid-template-columns: 132px 1fr 40px; gap: 8px; align-items: center; font-size: 13px; }
   .fb .pc { height: 7px; border-radius: 4px; margin: 0; } .fb b { text-align: right; font-size: 13px; }
@@ -502,12 +505,14 @@ function formCard(k, pbs) {
   const F = formOf(k); if (!F) return "";
   const wk = Date.now() - 7 * 864e5, F0 = formOf(k, wk), Fo = F0 && formOf(k, Date.now(), wk);
   const d = F0 && Fo ? Fo.score - F0.score : null, bar = Fo ? Fo.score - F.score : 0;   // d: real change, same bests; bar: how much new PBs raised it
-  return `<div class="card formc"><div class="bigscore"><div class="score ${band(F.score)}" style="flex-basis:76px;height:76px"><b style="font-size:38px">${F.score}</b><span>${T("form")}</span></div>
-    <div style="flex:1"><b style="font-size:17px">${T("form_h")}</b><div class="meta">${T("form_from", { n: F.n, r: F.rinks })}</div>
-    ${d != null ? `<div class="ftr ${d > 0 ? "up" : d < 0 ? "dn" : ""}">${d > 0 ? "▲ " + d : d < 0 ? "▼ " + -d : "="} ${T("form_vs_week")}${bar > 0 ? ` · <span>${T("form_bar_up", { b: bar })}</span>` : ""}</div>` : ""}</div></div>
+  const M = formMsgs(F, d, bar, pbs), head = d != null && d >= 2 ? T("fm_up_head", { d }) : M[0];
+  return `<details class="card formc"><summary><div class="bigscore"><div class="score ${band(F.score)}" style="flex-basis:64px;height:64px"><b style="font-size:32px">${F.score}</b><span>${T("form")}</span></div>
+    <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b><div class="fmsg">${head}</div></div><span class="chev">›</span></div></summary>
+    <div class="meta" style="margin-top:10px">${T("form_from", { n: F.n, r: F.rinks })}</div>
+    ${d != null ? `<div class="ftr ${d > 0 ? "up" : d < 0 ? "dn" : ""}">${d > 0 ? "▲ " + d : d < 0 ? "▼ " + -d : "="} ${T("form_vs_week")}${bar > 0 ? ` · <span>${T("form_bar_up", { b: bar })}</span>` : ""}</div>` : ""}
     <div class="fbars">${F.parts.map(p => `<div class="fb"><span>${T("fp_" + p.key)}</span><div class="pc"><i style="width:${Math.min(p.pct, 100)}%;background:${p.sc >= 95 ? "var(--lime)" : p.sc >= 80 ? "var(--cyan)" : "var(--signal)"}"></i></div><b>${p.pct}%</b></div>`).join("")}</div>
-    <div class="howform"><div class="k">${T("form_how_h")}</div>${formMsgs(F, d, bar, pbs).map(m => `<p>${m}</p>`).join("")}</div>
-    <div class="hint">${T("form_hint")}</div></div>`;
+    <div class="howform"><div class="k">${T("form_how_h")}</div>${M.filter(m => m !== head && !(d >= 2 && m === M[1])).map(m => `<p>${m}</p>`).join("")}</div>
+    <div class="hint">${T("form_hint")}</div></details>`;
 }
 // Crossover glides (1.2 s or more with no push in a bend) are found off the app and shown only in Insights and the reports:
 // in a race there should never be one (a negative); in practice some are expected, so they are noted, not marked.
