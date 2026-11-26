@@ -788,3 +788,16 @@ Object.assign(SL_I18N.en, {                          // v0.16 crossover glides (
   glide_k: "Glide", glides_n: "{n} glides", glide_h: "Glides in crossovers", glide_practice: "practice",
   glide_how: "A glide is 1.2 s or more without a push in a bend, from being boxed in or holding back. It costs speed that has to be won back on the straight."
 });
+Object.assign(SL_I18N.en, {                          // v0.17 current form
+  form: "Form", form_h: "Current form", form_from: "Last {n} fast laps · {r} rinks", form_vs_week: "vs a week ago", form_how_h: "How's my form",
+  form_hint: "100 is peak form: speed, cadence and push all at your best. Your bests rise with every PB, so peak form keeps getting faster.",
+  fp_speed: "Speed", fp_xrate: "Crossover cadence", fp_srate: "Straight cadence", fp_xpush: "Crossover push", fp_spush: "Straight push",
+  fm_peak: "Peak form! You're skating as well as you ever have. Enjoy it, and go after a PB.",
+  fm_great: "You're in great shape, close to your best.", fm_good: "Good form, with room to grow. Steady sessions will lift it.",
+  fm_build: "You're building back up. Every session counts, and form comes back faster than it went.",
+  fm_up: "Against last week's bests, form is up {d}: the work is paying off.", fm_down: "Against last week's bests, form is down {d}. That's normal after hard days; an easy session or a rest day helps you bounce back.",
+  fm_steady: "Form is steady week on week: a solid base to build on.",
+  fm_strong: "{part} is your strongest part right now, at {p}% of your best.", fm_focus: "{part} is at {p}% of your best. Lift it and your form climbs fastest.",
+  fm_bar: "Your {n} PBs this week raised the bar by {b} points. Peak form now means faster skating than a week ago!",
+  form_bar_up: "bar up {b}"
+});
