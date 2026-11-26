@@ -271,6 +271,11 @@
   .howform p { margin: 5px 0 0; font-size: 14px; line-height: 1.4; padding-left: 14px; position: relative; } .howform p::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); transform: rotate(45deg); }
   html.light .howform { background: #DCE3EF; border-color: transparent; }
   html.light .formc .ftr.up, html.light .formc .ftr span { color: #3F7A0E !important; } html.light .howform p::before { background: #3F7A0E; } html.light .fb .pc { background: #C9D2E2; }
+  .shr { display: flex; align-items: center; gap: 12px; } .shr .av { flex: 0 0 40px; height: 40px; border-radius: 50%; background: var(--surface); display: grid; place-content: center; font-weight: 800; font-size: 17px; color: #F2F2F7; }
+  .shr .chev { font-size: 24px; color: var(--muted); } .sech { font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+  .lv { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; margin: 4px 4px 0 0; background: var(--soft); } .lv.on { background: var(--rink); color: #fff; }
+  .lvp { align-items: flex-start; } .locked { opacity: .6; border-style: dashed; } table.mt td.win { color: var(--lime); font-weight: 800; }
+  html.light table.mt td.win { color: #3F7A0E; } .rrw { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -320,7 +325,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.18";
+const APP_VERSION = "0.19";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -2081,6 +2086,8 @@ screens.insights = () => {
   const P = [["speed", "sc_speed", "var(--rink)"], ["attack", "sc_attack", "var(--signal)"], ["steady", "sc_steady", "var(--cyan)"], ["volume", "sc_volume", "var(--lime)"], ["progress", "sc_progress", "#93A0B8"]];
   return `${shellTop()}<h1>${T("insights_title")}</h1>
   <div class="chips" id="inssel">${ANALYSED.map(a => `<button type="button" class="chip ${a === A ? "on" : ""}" data-ins="${a.id}">${esc((S.rinks.find(z => z.id === a.rink) || {}).short || "")} · ${esc(dfmt(new Date(a.date + "T12:00"), { day: "numeric", month: "short" }))}</button>`).join("")}</div>
+  ${(() => { const L = shares(), a = L.filter(x => x.status === "active").length, i = L.filter(x => x.status === "incoming").length;
+    return `<div class="card tap shr" onclick="go('compare')"><div class="av" style="background:var(--rink)">⇄</div><div style="flex:1"><b>${T("cmp_entry")}</b><div class="meta">${T("cmp_entry_sub", { a })}</div></div>${i ? `<span class="badge pro">${T("cmp_req", { n: i })}</span>` : '<span class="chev">›</span>'}</div>`; })()}
   <div class="nextup ${A.kind === "race" ? "raced" : "striped"}" style="padding-right:24%">${A.kind === "race" ? LANES : ""}<div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
     <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(A.date + "T12:00"), { weekday: "short", day: "numeric", month: "short" }))} · ${A.start} · ${A.mins} min</div>
     <div class="mstats" style="flex-wrap:wrap">${A.head ? `<div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div>` : A.head2.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join("")}</div></div>
@@ -2142,6 +2149,135 @@ screens.learn = () => {
 screens.learn.init = () => { wireWho();
   $("#lcat").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; S.learnCat = b.dataset.c; persist(); render(); };
   document.querySelectorAll("[data-li]").forEach(c => c.onclick = () => { S.learnItem = c.dataset.li; persist(); go("learnitem"); }); };
+// ---- Compare with another skater: mutual, opt-in sharing ----------------------------------------------------------------
+// Each side picks what it shares (basic profile, performance, technical, race results) and for how long; the other side's
+// parent or guardian approves and picks what they share back. A row of the comparison shows only when both sides share that
+// level. Either side can stop sharing at any time; it ends on its own at the agreed date.
+const SHARE_LV = ["basic", "perf", "tech", "races"];
+const SHARE_DUR = [[14, "dur_2w"], [30, "dur_1m"], [90, "dur_3m"], [0, "dur_open"]];
+const OTHERS = {                                      // sample skaters for the prototype
+  aarav: { id: "aarav", name: "Aarav K.", club: "Pune Speed Club", age: "U12", disc: "Quad", home: "Viman Nagar", since: 2022,
+    form: 86, best: { vn: 23.9, mm: 18.4 }, pbs30: 9, sess30: 14, laps30: 212,
+    tech: { start12: 1.02, start36: 1.08, t6: 1.62, xpush: .99, xrate: 149, spush: 1.21, srate: 121 },
+    races: [{ meet: "FST · Bhosari", day: "2026-11-22", m: 500, pos: 2, t: 63.8 }, { meet: "FST · Bhosari", day: "2026-11-22", m: 1000, pos: 3, t: 131.6 }, { meet: "District trials · MM", day: "2026-10-12", m: 500, pos: 1, t: 61.9 }] },
+  ishaan: { id: "ishaan", name: "Ishaan M.", club: "Nashik Rollers", age: "U12", disc: "Quad", home: "Nashik", since: 2023,
+    form: 81, best: { mm: 18.9 }, pbs30: 5, sess30: 11, laps30: 160, tech: {}, races: [{ meet: "District trials · MM", day: "2026-10-12", m: 500, pos: 3, t: 63.4 }] },
+  myra: { id: "myra", name: "Myra S.", club: "Pune Speed Club", age: "U14", disc: "Inline", home: "Mahalunge", since: 2021, best: {}, tech: {}, races: [] } };
+function shareSeed() {
+  const d = n => new Date(Date.now() + n * 864e5).toISOString();
+  return [{ id: "sh1", who: "aarav", status: "active", mine: ["basic", "perf", "races"], theirs: ["basic", "perf", "tech", "races"], from: d(-6), until: d(24), days: 30 },
+          { id: "sh2", who: "ishaan", status: "incoming", mine: [], theirs: ["basic", "perf", "races"], ask: ["basic", "perf", "races"], from: d(-1), days: 30, note: "Same age group at state trials. Want to compare lap times?" },
+          { id: "sh3", who: "myra", status: "outgoing", mine: ["basic", "perf"], ask: ["basic", "perf"], from: d(-2), days: 14 }];
+}
+const shares = () => { if (!S.shares) { S.shares = shareSeed(); persist(); } const now = Date.now();
+  S.shares.forEach(x => { if (x.status === "active" && x.until && +new Date(x.until) < now) x.status = "ended"; }); return S.shares; };
+const lvChips = (L, cls = "") => L.length ? L.map(l => `<span class="lv ${cls}">${T("lv_" + l)}</span>`).join("") : `<span class="meta">${T("lv_none")}</span>`;
+const untilTxt = x => x.until ? T("share_until", { d: dfmt(new Date(x.until), { day: "numeric", month: "short" }) }) : T("share_open");
+function myStats(k) {                                  // what this skater's side of a comparison shows
+  const ss = sessionsFor(k).filter(counts), d30 = Date.now() - 30 * 864e5, r30 = ss.filter(x => +new Date(x.date) >= d30);
+  const best = {}; ss.forEach(x => { const b = bestLapOf(x); if (b && (!best[x.rink_id] || b < best[x.rink_id])) best[x.rink_id] = b; });
+  const H = segHist(k.id), top = (key, lo) => { const v = H.map(h => h.segs[key]).filter(z => z != null); return v.length ? (lo ? Math.min(...v) : Math.max(...v)) : null; };
+  const P = PROFILES.vn, F = formOf(k);
+  const races = (S.events || []).filter(e => e.skater_id === k.id).flatMap(e => e.races.filter(r => r.who !== "other" && raceTime(r)).map(r => ({ meet: e.name + " · " + ((S.rinks.find(z => z.id === e.rink_id) || {}).short || ""), day: r.day || e.date, m: r.m, pos: r.position, t: raceTime(r) })));
+  return { name: k.display_name, club: k.club || "", age: "U" + (Math.ceil((new Date().getFullYear() - k.birth_year) / 2) * 2), disc: (k.discipline || []).map(x => x[0].toUpperCase() + x.slice(1)).join(", "),
+    home: (S.rinks.find(z => z.id === (ss[0] || {}).rink_id) || {}).name || "", since: k.skating_since || 2022,
+    form: F && F.score != null ? F.score : null, best, pbs30: r30.reduce((a, x) => a + pbsOf(x).length, 0), sess30: r30.length, laps30: r30.reduce((a, x) => a + lapsAll(x).length, 0),
+    tech: { start12: top("start12"), start36: top("start36"), t6: top("t6", 1), xpush: top("xpush"), xrate: top("xrate"), spush: top("spush"), srate: top("srate") }, races };
+}
+screens.compare = () => {
+  const L = shares(), by = st => L.filter(x => x.status === st), O = id => OTHERS[id] || { name: "?" };
+  const row = (x, sub, act) => `<div class="card tap shr" data-sh="${x.id}"><div class="av">${esc(O(x.who).name[0])}</div><div style="flex:1"><b>${esc(O(x.who).name)}</b> <span class="meta">${esc(O(x.who).club)}</span><div class="meta">${sub}</div></div>${act || '<span class="chev">›</span>'}</div>`;
+  return `${back("insights")}<h1>${T("cmp_h")}</h1><p class="sub">${T("cmp_sub")}</p>
+  ${by("incoming").length ? `<div class="sech">${T("cmp_in")}</div>${by("incoming").map(x => row(x, T("cmp_in_sub", { l: x.theirs.map(l => T("lv_" + l)).join(", ") }), `<span class="badge pro">${T("review")}</span>`)).join("")}` : ""}
+  <div class="sech">${T("cmp_active")}</div>${by("active").map(x => row(x, `${T("cmp_both", { n: x.mine.filter(l => x.theirs.includes(l)).length })} · ${untilTxt(x)}`)).join("") || `<div class="card meta">${T("cmp_none")}</div>`}
+  ${by("outgoing").length ? `<div class="sech">${T("cmp_out")}</div>${by("outgoing").map(x => row(x, T("cmp_wait"), `<span class="badge">${T("pending")}</span>`)).join("")}` : ""}
+  ${by("ended").length ? `<div class="sech">${T("cmp_ended")}</div>${by("ended").map(x => row(x, T("cmp_ended_sub"))).join("")}` : ""}
+  <button onclick="S.shareDraft=null;go('shareinvite')">${T("cmp_invite")}</button>
+  <div class="hint">${T("cmp_privacy")}</div>`;
+};
+screens.compare.init = () => document.querySelectorAll("[data-sh]").forEach(b => b.onclick = () => { const x = shares().find(z => z.id === b.dataset.sh); S.shareSel = x.id;
+  go(x.status === "incoming" ? "sharereview" : x.status === "active" ? "comparewith" : "sharemanage"); });
+function lvPicker(id, on, ask) {                       // the four levels, with what each one covers
+  return `<div id="${id}">${SHARE_LV.map(l => `<label class="check lvp"><input type="checkbox" value="${l}" ${on.includes(l) ? "checked" : ""}><span><b>${T("lv_" + l)}</b>${ask && !ask.includes(l) ? ` <span class="meta">${T("lv_notasked")}</span>` : ""}<div class="hint">${T("lvd_" + l)}</div></span></label>`).join("")}</div>`;
+}
+const picked = id => [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
+screens.shareinvite = () => {
+  const D = S.shareDraft || (S.shareDraft = { q: "", mine: ["basic", "perf"], ask: ["basic", "perf"], days: 30 });
+  return `${back("compare")}<h1>${T("inv_h")}</h1>
+  <label>${T("inv_find")}</label><input id="shq" placeholder="${T("inv_find_ph")}" value="${esc(D.q)}">
+  <div class="hint">${T("inv_find_hint")}</div>
+  <label>${T("inv_mine")}</label>${lvPicker("shmine", D.mine)}
+  <label>${T("inv_ask")}</label>${lvPicker("shask", D.ask)}
+  <label>${T("inv_dur")}</label><div class="chips" id="shdur" style="flex-wrap:wrap">${SHARE_DUR.map(([n, l]) => `<button type="button" class="chip ${n === D.days ? "on" : ""}" data-n="${n}">${T(l)}</button>`).join("")}</div>
+  <label>${T("inv_note")}</label><input id="shnote" placeholder="${T("inv_note_ph")}">
+  <div class="card" style="margin-top:14px"><b>${T("inv_how_h")}</b><p class="meta" style="margin:4px 0 0">${T("inv_how")}</p></div>
+  <button id="shsend">${T("inv_send")}</button>`;
+};
+screens.shareinvite.init = () => {
+  const D = S.shareDraft, keep = () => { D.q = $("#shq").value; D.mine = picked("shmine"); D.ask = picked("shask"); };
+  $("#shdur").onclick = e => { const b = e.target.closest("[data-n]"); if (!b) return; keep(); D.days = +b.dataset.n; render(); };
+  $("#shsend").onclick = () => { keep(); if (!D.q.trim()) return toast(T("inv_need_who")); if (!D.mine.length) return toast(T("inv_need_lv"));
+    const id = "x" + uid(); OTHERS[id] = { id, name: D.q.trim(), club: "", age: "", disc: "", home: "", since: "", best: {}, tech: {}, races: [] };
+    shares().push({ id: uid(), who: id, status: "outgoing", mine: D.mine, ask: D.ask, from: new Date().toISOString(), days: D.days, note: $("#shnote").value });
+    S.shareDraft = null; persist(); toast(T("inv_sent")); go("compare"); };
+};
+screens.sharereview = () => {
+  const x = shares().find(z => z.id === S.shareSel), o = OTHERS[x.who], k = currentSkater();
+  return `${back("compare")}<h1>${T("rev_h", { name: esc(o.name) })}</h1>
+  <div class="card"><div class="shr"><div class="av">${esc(o.name[0])}</div><div><b>${esc(o.name)}</b><div class="meta">${esc([o.club, o.age, o.disc].filter(Boolean).join(" · "))}</div></div></div>
+    ${x.note ? `<p style="margin:10px 0 0">“${esc(x.note)}”</p>` : ""}
+    <div class="meta" style="margin-top:10px">${T("rev_they")}</div><div>${lvChips(x.theirs, "on")}</div>
+    <div class="meta" style="margin-top:8px">${T("rev_dur", { d: T(SHARE_DUR.find(z => z[0] === x.days)[1]) })}</div></div>
+  <label>${T("rev_mine", { name: esc(k ? k.display_name : "") })}</label>${lvPicker("rvmine", x.ask, x.ask)}
+  <div class="hint">${T("rev_fair")}</div>
+  <label class="check" style="margin-top:12px"><input type="checkbox" id="rvok"><span>${T("rev_guardian", { name: esc(k ? k.display_name : "") })}</span></label>
+  <button id="rvyes">${T("rev_accept")}</button><button class="secondary" id="rvno">${T("rev_decline")}</button>`;
+};
+screens.sharereview.init = () => {
+  const x = shares().find(z => z.id === S.shareSel);
+  $("#rvyes").onclick = () => { const m = picked("rvmine"); if (!m.length) return toast(T("inv_need_lv")); if (!$("#rvok").checked) return toast(T("rev_need_ok"));
+    Object.assign(x, { status: "active", mine: m, from: new Date().toISOString(), until: x.days ? new Date(Date.now() + x.days * 864e5).toISOString() : null }); persist(); S.shareSel = x.id; go("comparewith"); };
+  $("#rvno").onclick = () => { S.shares = shares().filter(z => z !== x); persist(); toast(T("rev_declined")); go("compare"); };
+};
+screens.sharemanage = () => {
+  const x = shares().find(z => z.id === S.shareSel), o = OTHERS[x.who];
+  return `${back(x.status === "active" ? "comparewith" : "compare")}<h1>${esc(o.name)}</h1>
+  <div class="card"><div class="meta">${T("man_status_" + x.status)}</div>
+    <div class="meta" style="margin-top:10px">${T("man_you")}</div><div>${lvChips(x.mine, "on")}</div>
+    <div class="meta" style="margin-top:8px">${T(x.status === "outgoing" ? "man_asked" : "man_they", { name: esc(o.name) })}</div><div>${lvChips(x.status === "outgoing" ? x.ask : x.theirs, "on")}</div>
+    ${x.status === "active" ? `<div class="meta" style="margin-top:8px">${untilTxt(x)}</div>` : ""}</div>
+  ${x.status === "active" ? `<div class="hint">${T("man_change")}</div><button class="secondary" id="mnstop">${T("man_stop")}</button>` : ""}
+  ${x.status === "outgoing" ? `<button class="secondary" id="mnstop">${T("man_cancel")}</button>` : ""}
+  ${x.status === "ended" ? `<button id="mnagain">${T("man_again")}</button>` : ""}`;
+};
+screens.sharemanage.init = () => {
+  const x = shares().find(z => z.id === S.shareSel);
+  if ($("#mnstop")) $("#mnstop").onclick = () => { if (x.status === "active") { x.status = "ended"; x.until = new Date().toISOString(); } else S.shares = shares().filter(z => z !== x); persist(); toast(T("man_stopped")); go("compare"); };
+  if ($("#mnagain")) $("#mnagain").onclick = () => { S.shareDraft = { q: OTHERS[x.who].name, mine: x.mine, ask: x.theirs, days: x.days || 30 }; go("shareinvite"); };
+};
+screens.comparewith = () => {
+  const x = shares().find(z => z.id === S.shareSel), o = OTHERS[x.who], k = currentSkater(), me = myStats(k);
+  const both = l => x.mine.includes(l) && x.theirs.includes(l);
+  const lock = l => `<div class="card locked"><b>${T("lv_" + l)}</b><div class="meta">${T(!x.mine.includes(l) && !x.theirs.includes(l) ? "lock_both" : !x.mine.includes(l) ? "lock_you" : "lock_they", { name: esc(o.name) })}</div></div>`;
+  const vs = (lab, a, b, fmt = v => v, lo) => { const ok = a != null && b != null, aw = ok && (lo ? a < b : a > b), bw = ok && (lo ? b < a : b > a);
+    return `<tr><td>${lab}</td><td class="${aw ? "win" : ""}">${a == null ? "–" : fmt(a)}</td><td class="${bw ? "win" : ""}">${b == null ? "–" : fmt(b)}</td></tr>`; };
+  const head = `<tr><th></th><th>${esc(me.name)}</th><th>${esc(o.name)}</th></tr>`;
+  const sec = (l, body) => both(l) ? `<div class="card ins"><div class="insh"><b>${T("lv_" + l)}</b></div>${body}</div>` : lock(l);
+  const rinks = Object.keys(o.best || {}).filter(r => me.best[r]);
+  const g = v => v.toFixed(2) + " g", pm = v => Math.round(v) + "/min", sx = v => v.toFixed(2) + " s";
+  const ev = z => z.meet.split(" · ")[0], h2h = (o.races || []).flatMap(r => me.races.filter(m2 => m2.m === r.m && ev(m2) === ev(r)).map(m2 => ({ r, m2 })));
+  return `${back("compare")}<div class="meethead raced">${LANES}<div class="kick">${T("cmp_kick")}</div><div class="ttl">${esc(me.name)} <span style="opacity:.55">vs</span> ${esc(o.name)}</div><div class="meta" style="color:#C9D1E3">${untilTxt(x)} · <a href="#" id="cwman" style="color:var(--cyan)">${T("cmp_manage")}</a></div></div>
+  ${sec("basic", `<table class="mt">${head}<tr><td>${T("b_club")}</td><td>${esc(me.club)}</td><td>${esc(o.club)}</td></tr><tr><td>${T("b_age")}</td><td>${me.age}</td><td>${o.age}</td></tr>
+    <tr><td>${T("b_disc")}</td><td>${esc(me.disc)}</td><td>${esc(o.disc)}</td></tr><tr><td>${T("b_home")}</td><td>${esc(me.home)}</td><td>${esc(o.home)}</td></tr><tr><td>${T("b_since")}</td><td>${me.since}</td><td>${o.since}</td></tr></table>`)}
+  ${sec("perf", `<table class="mt">${head}${vs(T("p_form"), me.form, o.form)}${rinks.map(r => vs(T("p_best", { r: esc((S.rinks.find(z => z.id === r) || {}).short || r) }), me.best[r], o.best[r], v => fmtLap(v) + " s", 1)).join("")}
+    ${vs(T("p_pbs"), me.pbs30, o.pbs30)}${vs(T("p_sess"), me.sess30, o.sess30)}${vs(T("p_laps"), me.laps30, o.laps30)}</table><div class="hint">${T("p_hint")}</div>`)}
+  ${sec("tech", `<table class="mt">${head}${vs(T("seg_start12"), me.tech.start12, o.tech.start12, g)}${vs(T("seg_start36"), me.tech.start36, o.tech.start36, g)}${vs(T("seg_t6"), me.tech.t6, o.tech.t6, sx, 1)}
+    ${vs(T("seg_xrate"), me.tech.xrate, o.tech.xrate, pm)}${vs(T("seg_xpush"), me.tech.xpush, o.tech.xpush, g)}${vs(T("seg_srate"), me.tech.srate, o.tech.srate, pm)}${vs(T("seg_spush"), me.tech.spush, o.tech.spush, g)}</table><div class="hint">${T("t_hint")}</div>`)}
+  ${sec("races", `${h2h.length ? `<div class="meta" style="margin-bottom:4px">${T("r_h2h")}</div><table class="mt">${head}${h2h.map(({ r, m2 }) => `<tr><td>${r.m} m · ${esc(r.meet)}</td><td class="${m2.t < r.t ? "win" : ""}">${m2.pos ? m2.pos + ". " : ""}${fmtRT(m2.t)}</td><td class="${r.t < m2.t ? "win" : ""}">${r.pos}. ${fmtRT(r.t)}</td></tr>`).join("")}</table>` : ""}
+    <div class="meta" style="margin:10px 0 4px">${T("r_recent", { name: esc(o.name) })}</div>${o.races.map(r => `<div class="rrw"><span>${esc(dfmt(new Date(r.day + "T12:00"), { day: "numeric", month: "short" }))} · ${esc(r.meet)} · ${r.m} m</span><b>${r.pos}. ${fmtRT(r.t)}</b></div>`).join("")}`)}
+  <div class="hint">${T("cmp_fair_note")}</div>`;
+};
+screens.comparewith.init = () => { $("#cwman").onclick = e => { e.preventDefault(); go("sharemanage"); }; };
 screens.learnitem = () => {
   const x = LEARN.find(z => z.id === S.learnItem); if (!x) { setTimeout(() => go("learn")); return ""; }
   const rel = LEARN.filter(z => z.id !== x.id && z.tags.some(g => x.tags.includes(g))).slice(0, 3);
