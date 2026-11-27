@@ -503,7 +503,7 @@ async function updateMode() {
   if (!r) { log("No reply. If the sensor light is now blinking continuously it is in update mode anyway: continue in nRF Device Firmware Update."); return; }
   if (r.result === 0) {
     wantConnected = false;
-    log("Sensor restarting in update mode. Close this page, open nRF Device Firmware Update, tap Select next to Device (fresh scan), pick AdaDFU, then Upload.");
+    log("Sensor restarting in update mode. Close this page, open nRF Device Firmware Update, tap Select next to Device (fresh scan), pick AdaDFU, then Upload. XIAO Sense: first set Settings > Packet receipt notification on, number 1.");
   } else if (r.result === 2) log("Stop the recording first, then try again.");
   else log("This firmware can't enter update mode from here (needs 0.3.4+ on the Holyiot). Use the coin-cell + button method this time.");
 }
