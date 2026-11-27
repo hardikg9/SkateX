@@ -186,7 +186,7 @@
       <div class="meter"><i id="mLvl"></i><b id="mFloor"></b></div>
       <div class="legend"><span id="sndNow">Microphone off. Needs firmware 0.4.0-sense and the box above ticked before Start.</span></div>
       <table class="kv" id="tSounds"></table>
-      <p class="note">Voice, whistle or impulse (gun, clap) is a first guess from the sound's length and pitch. Every sound is saved with the motion sample where it started, so the start signal can be timed against the first push.</p>
+      <p class="note">Finish test: the skater shouts "yesss" crossing the line, then tap Finish here too. Voice, whistle, impulse (gun, clap) or yes is a first guess from the sound's length and pitch. Every sound is saved with the motion sample where it started, so the start signal can be timed against the first push.</p>
     </div>
 
     <div class="panel">
@@ -223,7 +223,7 @@
 // ---------------------------------------------------------------- protocol constants (SkateSensor v0.1)
 const uuid = n => `7a1e${n.toString(16).padStart(4,"0")}-5c2b-4d8e-9f10-3b6a2c4d5e60`;
 const U_SVC = uuid(1), U_DATA = uuid(2), U_CTRL = uuid(3), U_RESP = uuid(4), U_STAT = uuid(5), U_SND = uuid(6);
-const SND_CLASS = ["other", "voice", "whistle", "impulse"];
+const SND_CLASS = ["other", "voice", "whistle", "impulse", "yes (finish shout)"];
 const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS = [8.75, 17.5, 35, 70];
 const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
 const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3 / LSM6DS3TR-C"];
