@@ -52,7 +52,7 @@
 </head>
 <body>
 <div id="topbar">
-  <h1>SkateSensor Recorder</h1>
+  <h1>SkateSensor Recorder <span style="font-size:12px;font-weight:400;opacity:.6">page 27 Nov 14:05</span></h1>
   <div class="tabs"><button class="tab on" data-t="0">Sensor A <span class="tpill" id="tp0">–</span></button><button class="tab" data-t="1">Sensor B <span class="tpill" id="tp1">–</span></button><button class="tab" data-t="2">Rink walk <span class="tpill" id="tp2">GPS</span></button></div>
   <div class="row" id="sensorBar" style="margin:0">
     <button id="allStart">Start both</button><button id="allStop">Stop both</button><button id="allSave">Save both CSVs</button>
@@ -251,7 +251,7 @@ let resendQueue = [], resendBusy = false, resendSince = 0;
 let ackTimer = null, reconnectTimer = null, dropUntil = 0, dropTick = null;
 
 const $ = id => root.querySelector("#" + id);
-const fullLog = [];
+const fullLog = ["Recorder page version 27 Nov 14:05"];
 function log(msg, cls) {
   const t = new Date().toLocaleTimeString();
   fullLog.push(`${new Date().toISOString()}  ${msg}`);
