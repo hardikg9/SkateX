@@ -147,6 +147,7 @@
       </div>
       <div class="row"><label><input type="checkbox" id="cBeacon" checked> Lap beacons</label></div>
       <div class="row"><label><input type="checkbox" id="cMic" checked> Microphone: start signals</label><label><input type="checkbox" id="cLvl" checked> Sound levels</label></div>
+      <div class="row"><label><input type="checkbox" id="cClip"> Audio clips (testing: 2 s either side of each sound)</label></div>
       <div class="row"><label>Sound threshold <select id="sThr"><option value="6">6 dB</option><option value="9">9 dB</option><option value="12" selected>12 dB</option><option value="15">15 dB</option><option value="20">20 dB</option></select></label></div>
       <div class="row">
         <button id="bStart" disabled>Start</button>
@@ -186,6 +187,7 @@
       <div class="meter"><i id="mLvl"></i><b id="mFloor"></b></div>
       <div class="legend"><span id="sndNow">Microphone off. Needs firmware 0.4.0-sense and the box above ticked before Start.</span></div>
       <table class="kv" id="tSounds"></table>
+      <p class="note">Audio clips (testing only): tick the box before Start; each clip is 4 s, the sound starts at 2 s. One clip at a time, so sounds close together may have none. Save clips you want to keep: they are not in the CSV.</p>
       <p class="note">Finish test: the skater shouts "yesss" crossing the line, then tap Finish here too. Voice, whistle, impulse (gun, clap) or yes is a first guess from the sound's length and pitch. Every sound is saved with the motion sample where it started, so the start signal can be timed against the first push.</p>
     </div>
 
@@ -228,7 +230,7 @@ const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS
 const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
 const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3 / LSM6DS3TR-C"];
 const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
-const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK",10:"UPDATE_MODE",11:"SOUND"};
+const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK",10:"UPDATE_MODE",11:"SOUND",12:"CLIP"};
 
 // ---------------------------------------------------------------- one recorder per sensor
 function Sensor(root, label, onLink) {
@@ -240,7 +242,7 @@ function newRecording(st) {
   return { sessionId: st ? st.sessionId : 0, rate: st ? st.rate : 2, acc: st ? st.acc : 3, gyr: st ? st.gyr : 3,
            startEpoch: st ? st.startEpoch : 0, samples: [], times: [], received: 0, maxIdx: -1, expected: 0,
            gaps: [], lost: 0, packets: 0, resentPackets: 0, rxStart: performance.now(), rateWin: [],
-           sounds: [], levels: [] };
+           sounds: [], levels: [], clips: [] };
 }
 let pendingReply = null;  // {code, resolve}
 let writeFails = 0, noReplies = 0;
@@ -416,8 +418,55 @@ function onResp(dv) {
 
 // frequencies come in steps of 20 Hz up to firmware 0.4.1 and 40 Hz from 0.4.2 (20 Hz steps capped at 5.1 kHz)
 function fScale() { const v = status && status.fw ? status.fw.split(".").map(Number) : [0, 4, 2]; return v[0] > 0 || v[1] > 4 || (v[1] === 4 && v[2] >= 2) ? 40 : 20; }
+// ---- audio clips (firmware 0.4.3+, testing): 4 s of mu-law around a sound, sent in pieces, then rebuilt as a WAV
+let clipIn = null;
+function ulawDec(u) { u = ~u & 0xFF; const sg = u & 0x80, e = (u >> 4) & 7, m = u & 0x0F; const x = (((m << 3) + 132) << e) - 132; return sg ? -x : x; }
+function wavFrom(bytes, rate) {
+  const n = bytes.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + 2 * n, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, 2 * n, true);
+  let peak = 1; const pcm = new Int16Array(n); for (let i = 0; i < n; i++) { pcm[i] = ulawDec(bytes[i]); peak = Math.max(peak, Math.abs(pcm[i])); }
+  const g = Math.min(8, 24000 / peak);                    // normalise so quiet clips are audible
+  for (let i = 0; i < n; i++) v.setInt16(44 + 2 * i, Math.max(-32768, Math.min(32767, Math.round(pcm[i] * g))), true);
+  return new Blob([buf], { type: "audio/wav" });
+}
+function onClip(dv) {
+  const t = dv.getUint8(0), id = dv.getUint16(1, true);
+  if (t === 0x12) {
+    clipIn = { id, idx: dv.getUint32(3, true), len: dv.getUint32(7, true), preMs: dv.getUint16(11, true), rate: dv.getUint16(13, true), got: 0 };
+    clipIn.bytes = new Uint8Array(clipIn.len); clipIn.have = new Uint8Array(clipIn.len);
+    log(`Audio clip ${id} coming (sound at sample ${clipIn.idx}, ${(clipIn.len / clipIn.rate).toFixed(1)} s)`); return;
+  }
+  if (!clipIn || clipIn.id !== id) return;
+  if (t === 0x13) {
+    const off = dv.getUint32(3, true), n = dv.byteLength - 7;
+    for (let i = 0; i < n && off + i < clipIn.len; i++) { if (!clipIn.have[off + i]) clipIn.got++; clipIn.bytes[off + i] = dv.getUint8(7 + i); clipIn.have[off + i] = 1; }
+    return;
+  }
+  if (t === 0x14) {
+    let a = clipIn.have.indexOf(0);
+    if (a >= 0) { let b = a; while (b < clipIn.len && !clipIn.have[b]) b++;            // ask for the first missing piece
+      const p = new Uint8Array(8); const d = new DataView(p.buffer); d.setUint16(0, id, true); d.setUint32(2, a, true); d.setUint16(6, Math.min(b - a, 60000), true);
+      command(12, p); return; }
+    const p = new Uint8Array(8); new DataView(p.buffer).setUint16(0, id, true); command(12, p);   // got it all: free the sensor's buffer
+    const blob = wavFrom(clipIn.bytes, clipIn.rate), url = URL.createObjectURL(blob);
+    if (rec) { let x = rec.sounds.find(z => z.idx === clipIn.idx); if (!x) { x = { idx: clipIn.idx, phone: Date.now() }; rec.sounds.push(x); }
+      x.clip = { url, blob, preMs: clipIn.preMs, id }; rec.clips.push(x); }
+    log(`Audio clip ${id} received: tap ▶ in Sounds to listen`); renderSounds(); clipIn = null;
+  }
+}
+async function saveClip(i) {
+  const x = rec && rec.sounds[i]; if (!x || !x.clip) return;
+  const name = `sound_${(device && device.name) || "sensor"}_s${rec.sessionId}_#${x.idx}_${x.cls || "sound"}.wav`;
+  const f = new File([x.clip.blob], name, { type: "audio/wav" });
+  try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return; } } catch (e) { if (e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = x.clip.url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
 function onSound(dv) {                                     // 20 ms sound levels (bench tuning)
-  if (dv.getUint8(0) !== 0x10) return;
+  const t0 = dv.getUint8(0); if (t0 >= 0x12 && t0 <= 0x14) return onClip(dv);
+  if (t0 !== 0x10) return;
   const n = dv.getUint8(1), ms = dv.getUint32(2, true);
   let last = null;
   const fs = fScale();
@@ -431,14 +480,15 @@ function onSound(dv) {                                     // 20 ms sound levels
 }
 function renderSounds() {
   if (!rec) return;
-  $("tSounds").innerHTML = rec.sounds.slice(-8).reverse().map(x => `<tr><td>${x.cls || "…"}${x.dur != null ? ` · ${x.dur} ms` : ""}</td><td>${(x.peak ?? x.db ?? 0).toFixed(0)} dB${x.hz ? ` · ~${x.hz} Hz` : ""} · #${x.idx}</td></tr>`).join("");
+  $("tSounds").innerHTML = rec.sounds.map((x, i) => [x, i]).slice(-10).reverse().map(([x, i]) => `<tr><td>${x.cls || "…"}${x.dur != null ? ` · ${x.dur} ms` : ""}${x.clip ? `<br><audio controls preload="none" src="${x.clip.url}" style="width:100%;height:32px;margin-top:4px"></audio>` : ""}</td><td>${(x.peak ?? x.db ?? 0).toFixed(0)} dB${x.hz ? ` · ~${x.hz} Hz` : ""} · #${x.idx}${x.clip ? `<br><button class="clipsave" data-i="${i}" style="margin-top:4px">Save clip</button><div class="note" style="margin:2px 0 0">sound starts at ${(x.clip.preMs / 1000).toFixed(1)} s</div>` : ""}</td></tr>`).join("");
+  root.querySelectorAll(".clipsave").forEach(b => b.onclick = () => saveClip(+b.dataset.i));
 }
 async function setThreshold() { if (device && device.gatt.connected) { const r = await command(11, new Uint8Array([+$("sThr").value])); if (r && r.result === 1) log("This sensor has no microphone (needs the XIAO Sense with 0.4.0)."); } }
 
 function u32(v) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; }
 
 async function start() {
-  const p = new Uint8Array([+$("sRate").value, +$("sAcc").value, +$("sGyr").value, ($("cBeacon").checked ? 1 : 0) | ($("cMic").checked ? 2 : 0) | ($("cMic").checked && $("cLvl").checked ? 4 : 0)]);
+  const p = new Uint8Array([+$("sRate").value, +$("sAcc").value, +$("sGyr").value, ($("cBeacon").checked ? 1 : 0) | ($("cMic").checked ? 2 : 0) | ($("cMic").checked && $("cLvl").checked ? 4 : 0) | ($("cMic").checked && $("cClip").checked ? 8 : 0)]);
   const r = await command(1, p);
   if (r && r.result === 0) {
     rec = newRecording({ sessionId: (status ? status.sessionId : 0) + 1, rate: p[0], acc: p[1], gyr: p[2], startEpoch: 0 });
@@ -684,8 +734,8 @@ function csvText() {
   lines.push("# ---- markers: sample_index,phone_time_iso,marker,source ----");
   for (const m of markers) lines.push(`# ${m.idx ?? ""},${new Date(m.phone).toISOString()},${MARK[m.code] || m.code},${m.source}`);
   if (r.sounds && r.sounds.length) {
-    lines.push("# ---- sounds: sample_index,session_ms,class,duration_ms,peak_db,onset_db,rise_db,freq_hz ----");
-    for (const x of r.sounds) lines.push(`# ${x.idx},${x.ms ?? ""},${x.cls || ""},${x.dur ?? ""},${x.peak ?? ""},${x.db ?? ""},${x.rise ?? ""},${x.hz ?? ""}`);
+    lines.push("# ---- sounds: sample_index,session_ms,class,duration_ms,peak_db,onset_db,rise_db,freq_hz,clip ----");
+    for (const x of r.sounds) lines.push(`# ${x.idx},${x.ms ?? ""},${x.cls || ""},${x.dur ?? ""},${x.peak ?? ""},${x.db ?? ""},${x.rise ?? ""},${x.hz ?? ""},${x.clip ? "yes" : ""}`);
   }
   if (r.levels && r.levels.length) {
     lines.push("# ---- sound levels (20 ms frames): session_ms,level_db,zero_cross_hz,slope_hz ----");
