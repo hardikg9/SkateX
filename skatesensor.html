@@ -398,7 +398,7 @@ function onResp(dv) {
     $("sndNow").textContent = `Sound started at sample ${idx}: ${db.toFixed(0)} dB`; renderSounds(); return;
   }
   if (code === 0xE6) {                                     // sound summary: duration, peak, class, frequency
-    const idx = dv.getUint32(1, true), dur = dv.getUint16(5, true), peak = dv.getUint8(7) / 2, cls = SND_CLASS[dv.getUint8(8)] || "other", hz = dv.getUint8(9) * 20, rise = dv.getUint8(10);
+    const idx = dv.getUint32(1, true), dur = dv.getUint16(5, true), peak = dv.getUint8(7) / 2, cls = SND_CLASS[dv.getUint8(8)] || "other", hz = dv.getUint8(9) * fScale(), rise = dv.getUint8(10);
     if (rec) { let x = rec.sounds.find(z => z.idx === idx); if (!x) { x = { idx, phone: Date.now() }; rec.sounds.push(x); } Object.assign(x, { dur, peak, cls, hz, rise }); }
     log(`Sound: ${cls}, ${dur} ms, peak ${peak.toFixed(0)} dB, ~${hz} Hz, at sample ${idx}`); renderSounds(); return;
   }
@@ -414,11 +414,14 @@ function onResp(dv) {
   }
 }
 
+// frequencies come in steps of 20 Hz up to firmware 0.4.1 and 40 Hz from 0.4.2 (20 Hz steps capped at 5.1 kHz)
+function fScale() { const v = status && status.fw ? status.fw.split(".").map(Number) : [0, 4, 2]; return v[0] > 0 || v[1] > 4 || (v[1] === 4 && v[2] >= 2) ? 40 : 20; }
 function onSound(dv) {                                     // 20 ms sound levels (bench tuning)
   if (dv.getUint8(0) !== 0x10) return;
   const n = dv.getUint8(1), ms = dv.getUint32(2, true);
   let last = null;
-  for (let k = 0; k < n; k++) { const o = 6 + 3 * k; last = [ms + 20 * k, dv.getUint8(o) / 2, dv.getUint8(o + 1) * 20, dv.getUint8(o + 2) * 20]; if (rec) rec.levels.push(last); }
+  const fs = fScale();
+  for (let k = 0; k < n; k++) { const o = 6 + 3 * k; last = [ms + 20 * k, dv.getUint8(o) / 2, dv.getUint8(o + 1) * fs, dv.getUint8(o + 2) * fs]; if (rec) rec.levels.push(last); }
   if (last) {
     const fl = status && status.snd ? status.snd.floor : 0;
     $("mLvl").style.width = Math.max(0, Math.min(100, (last[1] - 30) / 90 * 100)) + "%";
@@ -523,7 +526,7 @@ function renderStatus() {
     ["Newest sample", st.newest], ["Oldest buffered", st.oldest], ["Buffer", `${st.cap} samples (${(st.cap / RATE[st.rate]).toFixed(0)} s)`]];
   if (st.snd) rows.push(["Microphone", `${["off", "listening", "failed to start"][st.snd.state] || st.snd.state}${st.snd.state === 1 ? `, background ${st.snd.floor} dB, threshold +${st.snd.thr} dB, ${st.snd.events} sounds` : ""}`],
                          ["Power", st.snd.chg ? "USB, charging" : st.snd.usb ? "USB, charged" : "Battery"]);
-  if (st.diag2) rows.push(["Sense diagnostics", `FIFO restarts ${st.diag2.fifoResets}, I2C resets ${st.diag2.i2cResets}, ${st.diag2.wordMode ? "word reads" : "block reads"}, sound frames dropped ${st.diag2.sndDrops}`]);
+  if (st.diag2) rows.push(["Sense diagnostics", `FIFO restarts ${st.diag2.fifoResets}, I2C resets ${st.diag2.i2cResets}, samples dropped out of step ${st.diag2.wordMode}, sound frames dropped ${st.diag2.sndDrops}`]);
   if (st.diag) rows.push(["Diagnostics", `adv ${["off","slow","fast","beacon"][st.diag.adv]}, err ${st.diag.advErr}, connects ${st.diag.conns}, resends ${st.diag.resends}, reply fails ${st.diag.replyFails}`]);
   $("tStatus").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
 }
@@ -667,7 +670,7 @@ requestAnimationFrame(frame);
 function csvText() {
   const r = rec; if (!r) return "";
   const ka = ACC_MG[r.acc] / 1000, kg = GYR_MDPS[r.gyr] / 1000;
-  const lines = [`# SkateSensor recording; device ${device ? device.name : ""}; session ${r.sessionId}; ${RATE[r.rate]} Hz; ±${[2,4,8,16][r.acc]} g; ${[250,500,1000,2000][r.gyr]} dps; session start (phone epoch ms) ${r.startEpoch}`,
+  const lines = [`# SkateSensor recording; device ${(device && device.name) || ""}; session ${r.sessionId}; ${RATE[r.rate]} Hz; ±${[2,4,8,16][r.acc]} g; ${[250,500,1000,2000][r.gyr]} dps; session start (phone epoch ms) ${r.startEpoch}`,
     "index,sensor_ms,phone_time_iso,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,ax_raw,ay_raw,az_raw,gx_raw,gy_raw,gz_raw,status,marker"];
   const mAt = {}; for (const m of markers) if (m.idx !== null) mAt[m.idx] = (mAt[m.idx] ? mAt[m.idx] + "+" : "") + (MARK[m.code] || m.code);
   for (const x of r.sounds || []) mAt[x.idx] = (mAt[x.idx] ? mAt[x.idx] + "+" : "") + "Sound:" + (x.cls || "?");
@@ -695,13 +698,13 @@ function csvText() {
 function csvFile() {
   const r = rec; if (!r) return null;
   const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
-  const name = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  const name = `skatesensor_${(device && device.name) || "sensor"}_s${r.sessionId}_${stamp}.csv`;
   return new File([csvText()], name, { type: "text/csv" });
 }
 async function saveCsv() {
   const r = rec; if (!r) return;
   const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
-  const name = `skatesensor_${device ? device.name : "rec"}_s${r.sessionId}_${stamp}.csv`;
+  const name = `skatesensor_${(device && device.name) || "sensor"}_s${r.sessionId}_${stamp}.csv`;
   const blob = new Blob([csvText()], { type: "text/csv" });
   try {                                                   // iPhone: share sheet (Save to Files, AirDrop, Mail, WhatsApp)
     const file = new File([blob], name, { type: "text/csv" });
