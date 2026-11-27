@@ -761,6 +761,7 @@ Object.assign(SL_I18N.en, {                          // v0.12
   live_timeline: "Session so far", live_now: "Skating now", live_resting: "Resting. The next set will appear here.", live_waiting: "Laps will appear here as they are skated.",
   live_prace: "Practice race · {n} laps ({m} m)", live_single: "Single lap",
   live_need_sensor: "Connect a sensor to see laps, practice races and PBs build up live. You can still time laps by hand.",
+  live_real_note: "Laps from the sensor will appear here once the recording is analysed. Time laps by hand meanwhile; they are kept with this practice.",
   live_auto_note: "Prototype: laps are simulated and arrive 8× faster than real. A break of a minute or more closes the laps before it into a practice race."
 });
 Object.assign(SL_I18N.en, {                          // v0.13 insights

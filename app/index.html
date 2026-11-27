@@ -330,7 +330,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.21";
+const APP_VERSION = "0.22";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -359,6 +359,12 @@ function migrate() {
     if (x.race_time) x.items.push({ id: uid(), at: x.date, kind: "race", laps: [], total: x.race_time, distance_laps: x.race_distance_laps });
     x.end = x.end || x.date; delete x.laps; delete x.best_lap; delete x.race_time; delete x.race_distance_laps;
   });
+  // up to 0.21 the live practice made laps up whenever a sensor was picked, also outside the demo; the prototype has no real
+  // sensor laps, so outside the demo every sensor-sourced item is simulated: remove it once, keep the hand timings
+  if (!S.demo && !S.simCleaned) {
+    S.sessions.forEach(x => { x.items = (x.items || []).filter(i => i.source !== "sensor"); delete x.segs; });
+    S.simCleaned = new Date().toISOString();
+  }
 }
 const persist = () => save(S);
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
@@ -1641,7 +1647,7 @@ screens.live = () => {
   <h2>${T("live_timeline")}</h2><div class="lbar" id="lbar"></div>
   <div class="card lfeed" id="lfeed"></div>
   ${tl.length ? `<h2>${T("so_far")}</h2><div class="card">${tl.map(x => `<div class="kv"><span style="flex:1">${x.html}</span><span class="ts">${x.ts}</span></div>`).join("")}</div>` : ""}
-  ${L.sensor && L.sensor.device ? `<div class="hint">${T("live_auto_note")}</div>` : ""}
+  ${L.sensor && L.sensor.device && S.demo ? `<div class="hint">${T("live_auto_note")}</div>` : ""}
 `;
 };
 screens.live.init = () => {
@@ -1663,7 +1669,7 @@ screens.live.init = () => {
     const s = { id: uid(), skater_id: L.skater_id, date: L.start, end: now, rink_id: L.rink_id, setup_id: (L.changes.find(c => c.setup_id) ? L.items[0] && L.items[0].setup_id : null) || L.setup_id,
                 source: "stopwatch", verified: false, items: L.items, recorded_by: role(), notes: L.notes.map(n => `${n.t_s != null ? mmss(n.t_s) : tod(n.at)} ${n.text}`).join("\n") || null,
                 sensor: on ? L.sensor : null, changes: L.changes, duration_s: Math.round(run() / 1000), segs: L.auto && L.auto.segs && Object.keys(L.auto.segs).length ? L.auto.segs : null };
-    const A = L.auto; if (A) { closeGroup(L); A.groups.forEach(g => s.items.push({ id: uid(), at: g.at, kind: g.laps.length >= 2 ? "race" : "laps", laps: g.laps.map(x => x.t), total: +g.laps.reduce((p, x) => p + x.t, 0).toFixed(2), distance_laps: g.laps.length >= 2 ? g.laps.length : null, setup_id: L.setup_id, source: "sensor" })); }
+    const A = L.auto; if (A) { closeGroup(L); A.groups.forEach(g => s.items.push({ id: uid(), at: g.at, kind: g.laps.length >= 2 ? "race" : "laps", laps: g.laps.map(x => x.t), total: +g.laps.reduce((p, x) => p + x.t, 0).toFixed(2), distance_laps: g.laps.length >= 2 ? g.laps.length : null, setup_id: L.setup_id, source: "sensor", sim: true })); }
     clearInterval(window._liveT);
     S.sessions.push(s); S.live = null; S.viewSession = s.id; S.selDay = dayKey(new Date(s.date)); persist(); toast(t("session_saved")); go("session");
   };
@@ -1674,6 +1680,7 @@ function closeGroup(L) { const A = L.auto; if (A && A.cur.length) { A.groups.pus
 function liveAuto(L, run) {
   clearInterval(window._liveT);
   const on = L.sensor && L.sensor.device; if (!on) { if ($("#lfeed")) $("#lfeed").innerHTML = `<div class="meta">${T("live_need_sensor")}</div>`; return; }
+  if (!S.demo) { if ($("#lfeed")) $("#lfeed").innerHTML = `<div class="meta">${T("live_real_note")}</div>`; return; }   // laps are only simulated in the demo
   const rk = S.rinks.find(z => z.id === L.rink_id), m = rk ? rk.lap_m : 200, typ = m / 200 * 22.6;
   const prev = sessionsFor(S.skaters.find(z => z.id === L.skater_id)).filter(x => x.rink_id === L.rink_id && counts(x)).map(bestLapOf).filter(Boolean);
   const pbBase = prev.length ? Math.min(...prev) : null;
