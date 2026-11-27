@@ -748,6 +748,7 @@ function csvText() {
     lines.push("# ---- sound levels (20 ms frames): session_ms,level_db,zero_cross_hz,slope_hz ----");
     for (const l of r.levels) lines.push(`# ${l.join(",")}`);
   }
+  if (status && status.diag2 && status.diag2.rate != null) lines.push(`# ---- sense diagnostics (last status): motion ${status.diag2.rate} samples/s via ${["FIFO block reads", "FIFO word reads", "direct registers"][status.diag2.mode] || status.diag2.mode}, I2C read ${status.diag2.us} us, FIFO restarts ${status.diag2.fifoResets}, I2C resets ${status.diag2.i2cResets}, out of step ${status.diag2.wordMode}, sound frames dropped ${status.diag2.sndDrops} ----`);
   lines.push("# ---- recorder log ----");
   for (const l of fullLog) lines.push("# " + l);
   return lines.join("\n") + "\n";
