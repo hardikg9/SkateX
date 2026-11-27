@@ -105,6 +105,7 @@
   .laps { max-height: 240px; overflow-y: auto; }
   .lapline { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
   .lapline.best { color: var(--ok); font-weight: 700; } html.light .lapline.best { color: var(--accent); }
+  .lapline.worst { color: var(--signal); font-weight: 700; } .lapline.part { color: var(--muted, #9aa3b5); font-style: italic; }
   .plancard { display: flex; gap: 12px; align-items: center; }
   .plancard .date { flex: 0 0 52px; text-align: center; background: var(--soft); border-radius: 10px; padding: 6px 0; }
   .plancard .date b { display: block; font-size: 18px; } .plancard .date span { font-size: 11px; color: var(--muted); text-transform: uppercase; }
@@ -329,7 +330,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.20";
+const APP_VERSION = "0.21";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -940,21 +941,35 @@ function summaryText(k, ss, week) {
   return s;
 }
 
-const SW = { running: false, t0: 0, laps: [], last: 0, timer: null, start: null, stopped: 0 };
+const SW = { running: false, t0: 0, laps: [], last: 0, timer: null, start: null, stopped: 0, part: 0 };
+// best and worst among full laps; the opening lap (from the start) only counts for worst when it is the only comparison
+function lapMarks() {
+  const L = SW.laps, n = L.length; if (n < 2) return { b: -1, w: -1 };
+  const med = L.slice().sort((a, c) => a - c)[n >> 1], idx = L.map((v, i) => i).filter(i => L[i] >= 0.75 * med);   // a short part lap (e.g. from a start line) is never best
+  if (idx.length < 2) return { b: -1, w: -1 };
+  const pool = idx.length >= 3 && idx[0] === 0 ? idx.slice(1) : idx;
+  const b = idx.reduce((a, i) => L[i] < L[a] ? i : a, idx[0]), w = pool.reduce((a, i) => L[i] > L[a] ? i : a, pool[0]);
+  return { b, w: w === b ? -1 : w };
+}
+function lapList(empty) {
+  const { b, w } = lapMarks();
+  const rows = SW.laps.map((l, i) => `<div class="lapline ${i === b ? "best" : i === w ? "worst" : ""}"><span>${T("lap_n", { n: i + 1 })}</span><span>${fmtLap(l)} s</span></div>`);
+  if (SW.part) rows.push(`<div class="lapline part"><span>${T("lap_part")}</span><span>${fmtLap(SW.part)} s</span></div>`);
+  return rows.reverse().join("") || `<div class="meta">${empty}</div>`;
+}
 const mmss = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(x).padStart(2, "0"); };
 function fmtTime(s) { const m = Math.floor(s / 60), r = s - m * 60; return `${String(m).padStart(2, "0")}:${r.toFixed(1).padStart(4, "0")}`; }
 screens.stopwatch = () => {
   const k = currentSkater();
   if (!k) { setTimeout(() => go("skate")); return ""; }
   const el = SW.running ? (performance.now() - SW.t0) / 1000 : SW.stopped;
-  const bestI = SW.laps.length ? SW.laps.indexOf(Math.min(...SW.laps)) : -1;
   const open = S.sessions.filter(x => x.source === "stopwatch" && (Date.now() - new Date(x.end)) < WINDOW_H * 36e5).sort((a, b) => b.end.localeCompare(a.end))[0];
   const rc = SW.race && (S.events || []).find(z => z.id === SW.race.eid), rr = rc && rc.races.find(z => z.id === SW.race.rid);
   if (rr || SW.practice) return `${back(rr ? "race" : "live", "")}<h1>${rr ? esc(raceLabel(rr)) : T("act_time_laps")}</h1><p class="sub">${rr ? esc(rr.who === "other" ? (rr.other_label || t("someone_else")) : (rc.name || "")) + " · " : ""}${T("race_timing_d")}</p>
   <div class="${rr ? "gz-racebox raced" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
   <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_save")}</button>` : `<button id="go">${T("sw_start")}</button>`}</div>
-  <div class="laps card">${SW.laps.map((l, i) => `<div class="lapline ${i === bestI ? "best" : ""}"><span>${T("lap_n", { n: i + 1 })}</span><span>${fmtLap(l)} s</span></div>`).reverse().join("") || `<div class="meta">${T("race_timing_hint")}</div>`}</div>`;
+  <div class="laps card">${lapList(T("race_timing_hint"))}</div>`;
   return `${back("skate", "")}<h1>${T("stopwatch")}</h1><p class="sub">${open ? T("sw_open", { rink: esc((rinkOf(open) || {}).short || ""), time: esc(tod(open.date)), n: okItems(open).length }) : T("sw_sub")}</p>
   <div class="timer" id="tm">${fmtTime(el)}</div>
   <div class="row">
@@ -962,17 +977,20 @@ screens.stopwatch = () => {
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_next")}</button>`
       : `<button id="go">${T("sw_start")}</button>`}
   </div>
-  <div class="laps card">${SW.laps.map((l, i) => `<div class="lapline ${i === bestI ? "best" : ""}"><span>${T("lap_n", { n: i + 1 })}</span><span>${fmtLap(l)} s</span></div>`).reverse().join("") || `<div class="meta">${T("stopwatch_d")}</div>`}</div>`;
+  <div class="laps card">${lapList(T("stopwatch_d"))}</div>`;
 };
 screens.stopwatch.init = () => {
   clearInterval(SW.timer);
   if (SW.running) SW.timer = setInterval(() => { const e = $("#tm"); if (!e) return clearInterval(SW.timer); e.textContent = fmtTime((performance.now() - SW.t0) / 1000); }, 100);
-  if ($("#go")) $("#go").onclick = () => { Object.assign(SW, { running: true, t0: performance.now(), laps: [], last: 0, stopped: 0, start: new Date().toISOString() }); render(); };
+  if ($("#go")) $("#go").onclick = () => { Object.assign(SW, { running: true, t0: performance.now(), laps: [], last: 0, stopped: 0, part: 0, start: new Date().toISOString() }); render(); };
   if ($("#lap")) $("#lap").onclick = () => { const e = (performance.now() - SW.t0) / 1000; SW.laps.push(+(e - SW.last).toFixed(2)); SW.last = e; if (navigator.vibrate) navigator.vibrate(30); render(); };
-  if ($("#stop")) $("#stop").onclick = () => { SW.stopped = Math.max(0.1, (performance.now() - SW.t0) / 1000); SW.running = false; render(); };
-  if ($("#reset")) $("#reset").onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0 }); render(); };
+  if ($("#stop")) $("#stop").onclick = () => { const e = Math.max(0.1, (performance.now() - SW.t0) / 1000); SW.stopped = e; SW.running = false;
+    const fin = +(e - SW.last).toFixed(2), L = SW.laps.slice().sort((a, b) => a - b), med = L.length ? L[L.length >> 1] : 0;
+    if (fin >= 2) { if (med && fin < 0.75 * med) SW.part = fin; else SW.laps.push(fin); }       // Stop is the finish: the last lap ends here
+    if (navigator.vibrate) navigator.vibrate(60); render(); };
+  if ($("#reset")) $("#reset").onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0 }); render(); };
   if ($("#savesw")) $("#savesw").onclick = () => { if (SW.race) return saveRaceTiming();
-    if (SW.practice) { const tm = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2) }; Object.assign(SW, { running: false, laps: [], stopped: 0, practice: false }); return saveLiveTiming("laps", tm); }
+    if (SW.practice) { const tm = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}) }; Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, practice: false }); return saveLiveTiming("laps", tm); }
     SW.form = null; go("swsave"); };
 };
 
@@ -1046,12 +1064,12 @@ screens.swsave.init = () => {
     const now = new Date(), rinkId = $("#fr").value, kind = segVal("#fkind");
     let x = openSession(k.id, rinkId, now);
     if (!x) { x = { id: uid(), skater_id: k.id, date: SW.start, end: now.toISOString(), rink_id: rinkId, setup_id: setupId, source: "stopwatch", verified: false, items: [], recorded_by: role() }; S.sessions.push(x); }
-    x.items.push({ id: uid(), at: SW.start, kind, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), distance_laps: kind === "race" ? SW.laps.length || null : null,
+    x.items.push({ id: uid(), at: SW.start, kind, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}), distance_laps: kind === "race" ? (SW.laps.length + (SW.part ? 0.5 : 0)) || null : null,
                    setup_id: setupId, note: $("#fn").value.trim() || null });
     x.end = now.toISOString();
     const r = S.rinks.find(z => z.id === rinkId);
     if (r && !r.loc && FIX && FIX.acc < 100) r.loc = { lat: FIX.lat, lng: FIX.lng, learned: now.toISOString() };   // the rink is recognised next time
-    Object.assign(SW, { running: false, laps: [], stopped: 0, form: null });
+    Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, form: null });
     S.current = k.id; S.viewSession = x.id; S.selDay = dayKey(now); persist(); toast(t("timing_saved")); go("session");
   };
 };
@@ -1847,9 +1865,9 @@ screens.racestart.init = () => {
 };
 function saveRaceTiming() {                          // race stopwatch: Go at the gun, Lap, Stop at the line → the after-race questions
   const e = (S.events || []).find(z => z.id === SW.race.eid), x = e && e.races.find(z => z.id === SW.race.rid);
-  if (x) x.timing = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2) };
+  if (x) x.timing = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}) };
   S.viewEvent = SW.race.eid; S.viewRace = SW.race.rid; S.postManual = false;
-  Object.assign(SW, { running: false, laps: [], stopped: 0, race: null }); persist(); go("racepost");
+  Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, race: null }); persist(); go("racepost");
 }
 // after each race (or a race added by hand): only what matters for who raced
 screens.racepost = () => {

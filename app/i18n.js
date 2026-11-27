@@ -160,6 +160,7 @@ window.SL_I18N = {
     sw_save: "Save session",
     sw_discard: "Discard",
     lap_n: "Lap {n}",
+    lap_part: "Last part lap",
     session_saved: "Session saved.",
     recording_for: "For {name}",
 
