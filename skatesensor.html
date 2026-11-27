@@ -52,7 +52,7 @@
 </head>
 <body>
 <div id="topbar">
-  <h1>SkateSensor Recorder <span style="font-size:12px;font-weight:400;opacity:.6">page 27 Nov 14:05</span></h1>
+  <h1>SkateSensor Recorder <span style="font-size:12px;font-weight:400;opacity:.6">page 27 Nov 14:20</span></h1>
   <div class="tabs"><button class="tab on" data-t="0">Sensor A <span class="tpill" id="tp0">–</span></button><button class="tab" data-t="1">Sensor B <span class="tpill" id="tp1">–</span></button><button class="tab" data-t="2">Rink walk <span class="tpill" id="tp2">GPS</span></button></div>
   <div class="row" id="sensorBar" style="margin:0">
     <button id="allStart">Start both</button><button id="allStop">Stop both</button><button id="allSave">Save both CSVs</button>
@@ -187,6 +187,7 @@
       <div class="meter"><i id="mLvl"></i><b id="mFloor"></b></div>
       <div class="legend"><span id="sndNow">Microphone off. Needs firmware 0.4.0-sense and the box above ticked before Start.</span></div>
       <table class="kv" id="tSounds"></table>
+      <p class="note">Faded rows: less than 24 dB above the background, probably room noise (firmware 0.4.9+).</p>
       <p class="note">Audio clips (testing only): tick the box before Start; each clip is 4 s, the sound starts at 2 s. One clip at a time, so sounds close together may have none. Save clips you want to keep: they are not in the CSV.</p>
       <p class="note">Finish test: the skater shouts "yesss" crossing the line, then tap Finish here too. Voice, whistle, impulse (gun, clap) or yes is a first guess from the sound's length and pitch. Every sound is saved with the motion sample where it started, so the start signal can be timed against the first push.</p>
     </div>
@@ -251,7 +252,7 @@ let resendQueue = [], resendBusy = false, resendSince = 0;
 let ackTimer = null, reconnectTimer = null, dropUntil = 0, dropTick = null;
 
 const $ = id => root.querySelector("#" + id);
-const fullLog = ["Recorder page version 27 Nov 14:05"];
+const fullLog = ["Recorder page version 27 Nov 14:20"];
 function log(msg, cls) {
   const t = new Date().toLocaleTimeString();
   fullLog.push(`${new Date().toISOString()}  ${msg}`);
@@ -400,9 +401,9 @@ function onResp(dv) {
     $("sndNow").textContent = `Sound started at sample ${idx}: ${db.toFixed(0)} dB`; renderSounds(); return;
   }
   if (code === 0xE6) {                                     // sound summary: duration, peak, class, frequency
-    const idx = dv.getUint32(1, true), dur = dv.getUint16(5, true), peak = dv.getUint8(7) / 2, cls = SND_CLASS[dv.getUint8(8)] || "other", hz = dv.getUint8(9) * fScale(), rise = dv.getUint8(10);
-    if (rec) { let x = rec.sounds.find(z => z.idx === idx); if (!x) { x = { idx, phone: Date.now() }; rec.sounds.push(x); } Object.assign(x, { dur, peak, cls, hz, rise }); }
-    log(`Sound: ${cls}, ${dur} ms, peak ${peak.toFixed(0)} dB, ~${hz} Hz, at sample ${idx}`); renderSounds(); return;
+    const idx = dv.getUint32(1, true), dur = dv.getUint16(5, true), peak = dv.getUint8(7) / 2, cls = SND_CLASS[dv.getUint8(8)] || "other", hz = dv.getUint8(9) * fScale(), rise = dv.getUint8(10), above = dv.byteLength >= 12 ? dv.getUint8(11) : null;
+    if (rec) { let x = rec.sounds.find(z => z.idx === idx); if (!x) { x = { idx, phone: Date.now() }; rec.sounds.push(x); } Object.assign(x, { dur, peak, cls, hz, rise, above }); }
+    log(`Sound: ${cls}, ${dur} ms, peak ${peak.toFixed(0)} dB${above != null ? ` (+${above} over background)` : ""}, ~${hz} Hz, at sample ${idx}`); renderSounds(); return;
   }
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
@@ -484,7 +485,7 @@ function onSound(dv) {                                     // 20 ms sound levels
 }
 function renderSounds() {
   if (!rec) return;
-  $("tSounds").innerHTML = rec.sounds.map((x, i) => [x, i]).slice(-10).reverse().map(([x, i]) => `<tr><td>${x.cls || "…"}${x.dur != null ? ` · ${x.dur} ms` : ""}${x.clip ? `<br><audio controls preload="none" src="${x.clip.url}" style="width:100%;height:32px;margin-top:4px"></audio>` : ""}</td><td>${(x.peak ?? x.db ?? 0).toFixed(0)} dB${x.hz ? ` · ~${x.hz} Hz` : ""} · #${x.idx}${x.clip ? `<br><button class="clipsave" data-i="${i}" style="margin-top:4px">Save clip</button><div class="note" style="margin:2px 0 0">sound starts at ${(x.clip.preMs / 1000).toFixed(1)} s</div>` : ""}</td></tr>`).join("");
+  $("tSounds").innerHTML = rec.sounds.map((x, i) => [x, i]).slice(-10).reverse().map(([x, i]) => `<tr style="${x.above != null && x.above < 24 ? "opacity:.45" : ""}"><td>${x.cls || "…"}${x.dur != null ? ` · ${x.dur} ms` : ""}${x.clip ? `<br><audio controls preload="none" src="${x.clip.url}" style="width:100%;height:32px;margin-top:4px"></audio>` : ""}</td><td>${(x.peak ?? x.db ?? 0).toFixed(0)} dB${x.above != null ? ` (+${x.above})` : ""}${x.hz ? ` · ~${x.hz} Hz` : ""} · #${x.idx}${x.clip ? `<br><button class="clipsave" data-i="${i}" style="margin-top:4px">Save clip</button><div class="note" style="margin:2px 0 0">sound starts at ${(x.clip.preMs / 1000).toFixed(1)} s</div>` : ""}</td></tr>`).join("");
   root.querySelectorAll(".clipsave").forEach(b => b.onclick = () => saveClip(+b.dataset.i));
 }
 async function setThreshold() { if (device && device.gatt.connected) { const r = await command(11, new Uint8Array([+$("sThr").value])); if (r && r.result === 1) log("This sensor has no microphone (needs the XIAO Sense with 0.4.0)."); } }
@@ -741,8 +742,8 @@ function csvText() {
   lines.push("# ---- markers: sample_index,phone_time_iso,marker,source ----");
   for (const m of markers) lines.push(`# ${m.idx ?? ""},${new Date(m.phone).toISOString()},${MARK[m.code] || m.code},${m.source}`);
   if (r.sounds && r.sounds.length) {
-    lines.push("# ---- sounds: sample_index,session_ms,class,duration_ms,peak_db,onset_db,rise_db,freq_hz,clip ----");
-    for (const x of r.sounds) lines.push(`# ${x.idx},${x.ms ?? ""},${x.cls || ""},${x.dur ?? ""},${x.peak ?? ""},${x.db ?? ""},${x.rise ?? ""},${x.hz ?? ""},${x.clip ? "yes" : ""}`);
+    lines.push("# ---- sounds: sample_index,session_ms,class,duration_ms,peak_db,onset_db,rise_db,freq_hz,clip,db_above_background ----");
+    for (const x of r.sounds) lines.push(`# ${x.idx},${x.ms ?? ""},${x.cls || ""},${x.dur ?? ""},${x.peak ?? ""},${x.db ?? ""},${x.rise ?? ""},${x.hz ?? ""},${x.clip ? "yes" : ""},${x.above ?? ""}`);
   }
   if (r.levels && r.levels.length) {
     lines.push("# ---- sound levels (20 ms frames): session_ms,level_db,zero_cross_hz,slope_hz ----");
