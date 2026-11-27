@@ -836,3 +836,7 @@ Object.assign(SL_I18N.en, {                          // v0.19 compare with anoth
   r_h2h: "Same races", r_recent: "{name}'s recent races",
   cmp_fair_note: "Green marks the better of the two. Every skater develops at their own pace: use this to learn, not to judge."
 });
+Object.assign(SL_I18N.en, {                          // v0.20 day panel
+  close: "Close", meet_lbl: "Meet", day_rest: "Nothing logged. A rest day counts too.", day_free: "Nothing planned yet.", day_today: "Nothing yet today.",
+  day_log: "+ Log a session", day_plan: "+ Plan training"
+});

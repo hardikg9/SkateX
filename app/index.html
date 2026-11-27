@@ -255,7 +255,7 @@
   .cap { background: var(--midnight); border: 1px solid var(--line); border-radius: 14px; padding: 9px 10px; display: flex; flex-direction: column; gap: 1px; }
   .cap .l { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); } .cap b { font-family: var(--display); font-size: 24px; line-height: 1.05; }
   .cap .gap { font-size: 11.5px; font-weight: 700; color: var(--lime); }
-  .pc { height: 4px; border-radius: 2px; background: var(--midnight); margin: 3px 0 1px; overflow: hidden; } .pc i { display: block; height: 100%; }
+  .pcb { height: 4px; border-radius: 2px; background: var(--midnight); margin: 3px 0 1px; overflow: hidden; } .pcb i { display: block; height: 100%; }
   table.mt b.dn2 { color: var(--signal); }
   .pbrow { display: grid; grid-template-columns: 62px 1fr auto; column-gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .pbrow:last-child { border-bottom: 0; } .pbrow .pbk { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -265,17 +265,21 @@
   .formc[open] .chev { transform: rotate(90deg); }
   .formc .ftr { font-size: 12.5px; font-weight: 700; margin-top: 3px; color: var(--muted); } .formc .ftr.up { color: var(--lime); } .formc .ftr.dn { color: var(--signal); }
   .fbars { margin: 12px 0 4px; display: grid; gap: 7px; } .fb { display: grid; grid-template-columns: 132px 1fr 40px; gap: 8px; align-items: center; font-size: 13px; }
-  .fb .pc { height: 7px; border-radius: 4px; margin: 0; } .fb b { text-align: right; font-size: 13px; }
+  .fb .pcb { height: 7px; border-radius: 4px; margin: 0; } .fb b { text-align: right; font-size: 13px; }
   .howform { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--midnight); border: 1px solid var(--line); }
   .howform .k { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
   .howform p { margin: 5px 0 0; font-size: 14px; line-height: 1.4; padding-left: 14px; position: relative; } .howform p::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); transform: rotate(45deg); }
   html.light .howform { background: #DCE3EF; border-color: transparent; }
-  html.light .formc .ftr.up, html.light .formc .ftr span { color: #3F7A0E !important; } html.light .howform p::before { background: #3F7A0E; } html.light .fb .pc { background: #C9D2E2; }
+  html.light .formc .ftr.up, html.light .formc .ftr span { color: #3F7A0E !important; } html.light .howform p::before { background: #3F7A0E; } html.light .fb .pcb { background: #C9D2E2; }
   .shr { display: flex; align-items: center; gap: 12px; } .shr .av { flex: 0 0 40px; height: 40px; border-radius: 50%; background: var(--surface); display: grid; place-content: center; font-weight: 800; font-size: 17px; color: #F2F2F7; }
   .shr .chev { font-size: 24px; color: var(--muted); } .sech { font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
   .lv { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; margin: 4px 4px 0 0; background: var(--soft); } .lv.on { background: var(--rink); color: #fff; }
   .lvp { align-items: flex-start; } .locked { opacity: .6; border-style: dashed; } table.mt td.win { color: var(--lime); font-weight: 800; }
   html.light table.mt td.win { color: #3F7A0E; } .rrw { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .daypanel { margin: 10px 0 4px; padding: 12px; border-radius: 18px; background: var(--section); border: 1px solid var(--line); }
+  html.light .daypanel { background: #E6EBF4; } .daypanel .dph { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .daypanel .dph b { font-size: 16px; } .daypanel .dph .link { width: auto; margin: 0; padding: 2px 8px; font-size: 16px; }
+  .daypanel .card { margin-bottom: 8px; } .dpbtn { display: flex; gap: 8px; } .dpbtn button { margin: 0; flex: 1; padding: 10px; font-size: 13px; }
   /* meets */
   .meethead { background: var(--section); color: #F2F2F7; border-radius: 22px; padding: 18px 24% 18px 18px; margin: 6px 0 14px; }
   .meethead .ttl { font-family: var(--display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 38px; line-height: .95; margin: 4px 0 6px; }
@@ -325,7 +329,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.19";
+const APP_VERSION = "0.20";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -523,7 +527,7 @@ function formHtml(F, d, bar, head, rest, tag, note) {
     <div style="flex:1"><b style="font-size:16px">${T("form_h")}</b>${tag}<div class="fmsg">${head}</div></div><span class="chev">›</span></div></summary>
     <div class="meta" style="margin-top:10px">${T("form_from", { n: F.n, r: F.rinks })}</div>
     ${d != null ? `<div class="ftr ${d > 0 ? "up" : d < 0 ? "dn" : ""}">${d > 0 ? "▲ " + d : d < 0 ? "▼ " + -d : "="} ${T("form_vs_week")}${bar > 0 ? ` · <span>${T("form_bar_up", { b: bar })}</span>` : ""}</div>` : ""}
-    <div class="fbars">${F.parts.map(p => `<div class="fb"><span>${T("fp_" + p.key)}</span><div class="pc"><i style="width:${Math.min(p.pct, 100)}%;background:${p.sc >= 95 ? "var(--lime)" : p.sc >= 80 ? "var(--cyan)" : "var(--signal)"}"></i></div><b>${p.pct}%</b></div>`).join("")}</div>
+    <div class="fbars">${F.parts.map(p => `<div class="fb"><span>${T("fp_" + p.key)}</span><div class="pcb"><i style="width:${Math.min(p.pct, 100)}%;background:${p.sc >= 95 ? "var(--lime)" : p.sc >= 80 ? "var(--cyan)" : "var(--signal)"}"></i></div><b>${p.pct}%</b></div>`).join("")}</div>
     <div class="howform"><div class="k">${T("form_how_h")}</div>${rest.map(m => `<p>${m}</p>`).join("")}</div>
     <div class="hint">${note ? note + " " : ""}${T("form_hint")}</div></details>`;
 }
@@ -770,7 +774,7 @@ screens.home = () => {
   const ss = sessionsFor(k);
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const days = []; for (let i = -6; i <= 7; i++) { const d = new Date(now); d.setDate(d.getDate() + i); days.push(d); }
-  const sel = S.selDay || dayKey(now);
+  const sel = S.selDay || dayKey(now), dayOpen = !!S.dayOpen;
   const wkStart = new Date(now); wkStart.setDate(now.getDate() - 6);
   const week = ss.filter(s => new Date(s.date) >= wkStart);
   const laps = week.reduce((a, s) => a + lapsAll(s).length, 0);
@@ -800,6 +804,14 @@ screens.home = () => {
     const sc = ss.filter(s => dayKey(s.date) === kk), pl = plans.some(p => p.date === kk), best = sc.map(scoreOf).filter(v => v != null);
     return `<div class="day ${kk === dayKey(now) ? "today" : ""} ${kk === sel ? "sel" : ""}" data-d="${kk}"><div class="d">${esc(dfmt(d, { weekday: "short" }))}</div><div class="n">${d.getDate()}</div>
       <div class="dots">${sc.length ? `<span class="dot ${band(best.length ? Math.max(...best) : null)}"></span>` : ""}${pl ? '<span class="dot plan"></span>' : ""}</div></div>`; }).join("")}</div>
+  ${dayOpen ? (() => { const d = new Date(sel + "T12:00"), today = dayKey(now), past = sel <= today, fut = sel >= today;
+      const evs = (S.events || []).filter(e => (!k || e.skater_id === k.id) && (e.date === sel || e.races.some(r => r.day === sel)));
+      const empty = !daySessions.length && !dayPlans.length && !evs.length;
+      return `<div class="daypanel"><div class="dph"><b>${esc(dfmt(d, { weekday: "long", day: "numeric", month: "short" }))}</b><button type="button" class="link" id="dpclose" aria-label="${T("close")}">✕</button></div>
+        ${daySessions.map(sessionCard).join("")}${dayPlans.map(planCard).join("")}
+        ${evs.map(e => `<div class="card tap" data-ev="${e.id}"><b>${esc(e.name || "")}</b> <span class="badge">${T("meet_lbl")}</span><div class="meta">${e.races.filter(r => r.who !== "other").map(r => `${r.m} m${r.position ? " · " + r.position + "." : ""}${raceTime(r) ? " " + fmtRT(raceTime(r)) : ""}`).join(" · ")}</div></div>`).join("")}
+        ${empty ? `<div class="meta" style="margin:2px 0 8px">${T(sel < today ? "day_rest" : sel > today ? "day_free" : "day_today")}</div>` : ""}
+        <div class="dpbtn">${past && k ? `<button type="button" class="secondary" data-pref="manual">${T("day_log")}</button>` : ""}${fut ? `<button type="button" class="secondary" data-pref="planadd">${T("day_plan")}</button>` : ""}</div></div>`; })() : ""}
   ${k ? `<div class="wkline"><div class="cheer">${cheer}</div>
     <div class="wktiles">
       <button class="wkt ${open === "sess" ? "on" : ""}" data-wk="sess"><span class="v">${week.length}</span><span class="l">${T("sessions_n", { n: "" }).trim()}</span>${avgSc != null ? `<span class="sub">${T("avg_score")} ${avgSc}</span>` : ""}</button>
@@ -809,7 +821,7 @@ screens.home = () => {
   <div class="advice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
     <div style="flex:1">${adviceList(week).map((a, i) => `<div class="slide ${i ? "" : "on"}"><div class="k">${T("focus_week")} · ${i + 1}/${adviceList(week).length}</div>${T(a)}</div>`).join("")}
       <div class="dots2">${adviceList(week).map((a, i) => `<i class="${i ? "" : "on"}" data-ai="${i}"></i>`).join("")}</div></div></div>` : ""}
-  ${dayPlans.map(planCard).join("")}
+  ${dayOpen ? "" : plans.filter(p => p.date === dayKey(now)).map(planCard).join("")}
   ${k ? raceHomeCard(k) : ""}
   ${k ? betterCard(k, ss) : ""}
   <h2>${T("trends")}</h2>${trends(ss)}
@@ -861,7 +873,12 @@ function adviceKey(week) {                             // the weakest part of th
 }
 screens.home.init = () => {
   wireWho();
-  document.querySelectorAll(".day").forEach(d => d.onclick = () => { S.selDay = d.dataset.d; persist(); render(); });
+  document.querySelectorAll(".day").forEach(d => d.onclick = () => { const same = S.selDay === d.dataset.d && S.dayOpen;   // tap a day to see it; tap again to close
+    S.selDay = d.dataset.d; S.dayOpen = !same; persist(); render(); });
+  S.prefDate = null;
+  if ($("#dpclose")) $("#dpclose").onclick = () => { S.dayOpen = false; persist(); render(); };
+  document.querySelectorAll("[data-pref]").forEach(b => b.onclick = () => { S.prefDate = S.selDay; go(b.dataset.pref); });
+  document.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { S.viewEvent = b.dataset.ev; go("race"); });
   clearInterval(window._advT);
   const slides = [...document.querySelectorAll(".advice .slide")], dots = [...document.querySelectorAll(".advice .dots2 i")]; let ai = 0;
   const showA = n => { ai = (n + slides.length) % slides.length; slides.forEach((x, i) => x.classList.toggle("on", i === ai)); dots.forEach((x, i) => x.classList.toggle("on", i === ai)); };
@@ -1044,7 +1061,7 @@ screens.manual = () => {
   if (!k) { setTimeout(() => go("skate")); return ""; }
   return `${back("practice", "")}<h1>${T("me_title")}</h1><p class="sub">${T("recording_for", { name: esc(k.display_name) })} · <span class="badge unv">${T("not_counted")}</span></p>
   <label for="mr">${T("rink")}</label>${rinkSelect("mr", lastOf(k.id, "rink_id") || S.rinks[0].id)}
-  <div class="row"><div><label for="md">${T("me_date")}</label><input id="md" type="date" value="${dayKey(new Date())}" max="${dayKey(new Date())}"></div>
+  <div class="row"><div><label for="md">${T("me_date")}</label><input id="md" type="date" value="${(S.prefDate && S.prefDate <= dayKey(new Date()) && S.prefDate) || dayKey(new Date())}" max="${dayKey(new Date())}"></div>
     <div><label for="mtm">${T("me_time")}</label><input id="mtm" type="time" value="17:00"></div></div>
   <label for="ms">${T("skate_setup")}</label>${setupSelect("ms", k, lastOf(k.id, "setup_id"))}
   <div class="row">
@@ -1988,7 +2005,7 @@ screens.plan.init = () => { wireWho(); wireSessions(); };
 screens.planadd = () => `${back("plan", "")}<h1>${T("add_plan").replace("+ ", "")}</h1>
   <label for="prk">${T("rink")}</label>${rinkSelect("prk", (currentSkater() && lastOf(currentSkater().id, "rink_id")) || S.rinks[0].id)}
   <label>${T("me_type")}</label><div class="seg" id="pt"><button type="button" data-v="training" class="on">${T(role() === "coach" ? "practice" : "type_training")}</button><button type="button" data-v="race">${T("type_race")}</button></div>
-  <label for="pd">${T("me_date")}</label><input id="pd" type="date" value="${dayKey(new Date())}" ${role() === "coach" ? "" : `min="${dayKey(new Date())}"`}>
+  <label for="pd">${T("me_date")}</label><input id="pd" type="date" value="${(S.prefDate && S.prefDate >= dayKey(new Date()) && S.prefDate) || dayKey(new Date())}" ${role() === "coach" ? "" : `min="${dayKey(new Date())}"`}>
   <label for="ptl">${T("plan_item_title")}</label><input id="ptl">
   <label for="pn">${T("me_notes")}</label><textarea id="pn" rows="2"></textarea>
   <button id="psave">${T("save_changes")}</button>`;
@@ -2094,7 +2111,7 @@ screens.insights = () => {
   ${A.pbs ? `<div class="card ins"><div class="insh"><b>${T("pb_card_h")}</b><span class="pb">${A.pbs.length} PB</span></div>${pbRows(A.pbs)}</div>` : ""}
   ${A.glides ? (() => { const neg = A.kind === "race"; return `<div class="card ins"><div class="insh"><b>${T("glide_h")}</b>${neg ? `<span class="neg">${T(A.glides.length > 1 ? "glides_n" : "glide_k", { n: A.glides.length })}</span>` : `<span class="meta">${T("glide_practice")}</span>`}</div>${glideRows(A.glides, neg)}<div class="hint">${esc(A.glideNote)} ${T("glide_how")}</div></div>`; })() : ""}
   ${profileCard(PROFILES[A.vsRink || A.rink], A)}
-  ${A.vs ? sec(T("ins_vs_h"), "pro", `<table class="mt"><tr><th></th>${A.vs.cols.map(c => `<th>${c}</th>`).join("")}</tr>${A.vs.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td>${rw.slice(2).map(([v, pc]) => `<td><b class="${pc >= 95 ? "up2" : pc < 80 ? "dn2" : ""}">${v}</b><div class="pc"><i style="width:${Math.min(pc, 100)}%;background:${pc >= 95 ? "var(--lime)" : pc < 80 ? "var(--signal)" : "var(--cyan)"}"></i></div><span class="meta" style="font-size:11px">${pc}%</span></td>`).join("")}</tr>`).join("")}</table><div class="hint">${esc(A.vsNote)}</div>`) : ""}
+  ${A.vs ? sec(T("ins_vs_h"), "pro", `<table class="mt"><tr><th></th>${A.vs.cols.map(c => `<th>${c}</th>`).join("")}</tr>${A.vs.rows.map(rw => `<tr><td>${rw[0]}</td><td>${rw[1]}</td>${rw.slice(2).map(([v, pc]) => `<td><b class="${pc >= 95 ? "up2" : pc < 80 ? "dn2" : ""}">${v}</b><div class="pcb"><i style="width:${Math.min(pc, 100)}%;background:${pc >= 95 ? "var(--lime)" : pc < 80 ? "var(--signal)" : "var(--cyan)"}"></i></div><span class="meta" style="font-size:11px">${pc}%</span></td>`).join("")}</tr>`).join("")}</table><div class="hint">${esc(A.vsNote)}</div>`) : ""}
   ${A.parts ? sec(T("ins_score_h"), "pro", `<div class="bars">${P.map(([k2, l, c]) => `<div class="br"><span>${T(l)}</span><span class="tr"><i style="width:${A.parts[k2]}%;background:${c}"></i></span><b>${A.parts[k2]}</b></div>`).join("")}</div>`) : ""}
   ${A.blocks ? sec(T("ins_timeline_h"), "pro", `<div class="lbar" style="height:26px">${A.blocks.map(([a, b, kd]) => `<i style="left:${(a / A.mins * 100).toFixed(2)}%;width:${Math.max((b - a) / A.mins * 100, 1.2).toFixed(2)}%;background:${C[kd]}"></i>`).join("")}</div>
     <div class="ax" style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0′</span><span>30′</span><span>60′</span><span>${A.mins}′</span></div>
