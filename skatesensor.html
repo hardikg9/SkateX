@@ -31,6 +31,7 @@
   .mk { min-width:84px; font-weight:600; }
   canvas { width:100%; height:200px; display:block; background:#12151b; border-radius:6px; }
   .legend { font-size:12px; color:var(--dim); margin:6px 0 2px; }
+  .meter { position:relative; height:10px; border-radius:5px; background:#222733; overflow:hidden; } .meter i { display:block; height:100%; width:0; background:#5CE1FF; } .meter b { position:absolute; top:0; bottom:0; width:2px; background:#F2923A; left:0; }
   .legend b { font-weight:600; } .cx{color:var(--x)} .cy{color:var(--y)} .cz{color:var(--z)}
   #log { height:180px; overflow:auto; font:12px ui-monospace,Menlo,monospace; background:#12151b; border-radius:6px; padding:6px; white-space:pre-wrap; }
   .note { color:var(--dim); font-size:12px; }
@@ -145,6 +146,8 @@
         <label>Gyro <select id="sGyr"><option value="0">250 °/s</option><option value="1">500 °/s</option><option value="2">1000 °/s</option><option value="3" selected>2000 °/s</option></select></label>
       </div>
       <div class="row"><label><input type="checkbox" id="cBeacon" checked> Lap beacons</label></div>
+      <div class="row"><label><input type="checkbox" id="cMic" checked> Microphone: start signals</label><label><input type="checkbox" id="cLvl" checked> Sound levels</label></div>
+      <div class="row"><label>Sound threshold <select id="sThr"><option value="6">6 dB</option><option value="9">9 dB</option><option value="12" selected>12 dB</option><option value="15">15 dB</option><option value="20">20 dB</option></select></label></div>
       <div class="row">
         <button id="bStart" disabled>Start</button>
         <button id="bStop" disabled>Stop</button>
@@ -163,7 +166,7 @@
       <div class="row">
         <button id="bDfu" disabled>Firmware update mode</button>
       </div>
-      <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes on both the XIAO and the Holyiot with firmware 0.3+) and the page fetches it automatically when the link comes back.</p>
+      <p class="note">Leaving range is fine: data is buffered on the sensor (about 2 minutes on the Holyiot with firmware 0.3+, about 6.5 minutes on the XIAO Sense with 0.4.0) and the page fetches it automatically when the link comes back.</p>
     </div>
 
     <div class="panel">
@@ -176,6 +179,14 @@
       </div>
       <p class="note">Tap when it happens. Markers are saved in the CSV and drawn on the charts.</p>
       <table class="kv" id="tMarks"></table>
+    </div>
+
+    <div class="panel" id="pSound">
+      <h2>Sounds (XIAO Sense)</h2>
+      <div class="meter"><i id="mLvl"></i><b id="mFloor"></b></div>
+      <div class="legend"><span id="sndNow">Microphone off. Needs firmware 0.4.0-sense and the box above ticked before Start.</span></div>
+      <table class="kv" id="tSounds"></table>
+      <p class="note">Voice, whistle or impulse (gun, clap) is a first guess from the sound's length and pitch. Every sound is saved with the motion sample where it started, so the start signal can be timed against the first push.</p>
     </div>
 
     <div class="panel">
@@ -211,23 +222,25 @@
 "use strict";
 // ---------------------------------------------------------------- protocol constants (SkateSensor v0.1)
 const uuid = n => `7a1e${n.toString(16).padStart(4,"0")}-5c2b-4d8e-9f10-3b6a2c4d5e60`;
-const U_SVC = uuid(1), U_DATA = uuid(2), U_CTRL = uuid(3), U_RESP = uuid(4), U_STAT = uuid(5);
+const U_SVC = uuid(1), U_DATA = uuid(2), U_CTRL = uuid(3), U_RESP = uuid(4), U_STAT = uuid(5), U_SND = uuid(6);
+const SND_CLASS = ["other", "voice", "whistle", "impulse"];
 const RATE = [26, 52, 104, 208], ACC_MG = [0.061, 0.122, 0.244, 0.488], GYR_MDPS = [8.75, 17.5, 35, 70];
 const STATE = ["Idle", "Streaming", "Recording (disconnected)", "Low battery"];
-const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3"];
+const IMU = ["None – dummy data", "LSM6DSO", "LSM6DS3 / LSM6DS3TR-C"];
 const RESULT = ["OK", "Bad parameter", "Wrong state", "Data no longer available", "Busy"];
-const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK",10:"UPDATE_MODE"};
+const CMD = {1:"START",2:"STOP",3:"RESEND",4:"SET_TIME",5:"GET_STATUS",6:"IDENTIFY",7:"ACK",8:"POWER_OFF",9:"MARK",10:"UPDATE_MODE",11:"SOUND"};
 
 // ---------------------------------------------------------------- one recorder per sensor
 function Sensor(root, label, onLink) {
 // ---------------------------------------------------------------- state
-let device = null, chData, chCtrl, chResp, chStat, wantConnected = false;
+let device = null, chData, chCtrl, chResp, chStat, chSnd = null, wantConnected = false;
 let status = null;
 let rec = null;           // current recording
 function newRecording(st) {
   return { sessionId: st ? st.sessionId : 0, rate: st ? st.rate : 2, acc: st ? st.acc : 3, gyr: st ? st.gyr : 3,
            startEpoch: st ? st.startEpoch : 0, samples: [], times: [], received: 0, maxIdx: -1, expected: 0,
-           gaps: [], lost: 0, packets: 0, resentPackets: 0, rxStart: performance.now(), rateWin: [] };
+           gaps: [], lost: 0, packets: 0, resentPackets: 0, rxStart: performance.now(), rateWin: [],
+           sounds: [], levels: [] };
 }
 let pendingReply = null;  // {code, resolve}
 let writeFails = 0, noReplies = 0;
@@ -269,7 +282,7 @@ async function connect() {
   await openLink();
 }
 
-const hData = e => onData(e.target.value), hResp = e => onResp(e.target.value), hStat = e => onStatus(e.target.value);
+const hData = e => onData(e.target.value), hResp = e => onResp(e.target.value), hStat = e => onStatus(e.target.value), hSnd = e => onSound(e.target.value);
 let connecting = false, attempts = 0;
 const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " timed out")), ms))]);
 async function openLink() {
@@ -286,6 +299,9 @@ async function openLink() {
     chResp.addEventListener("characteristicvaluechanged", hResp);
     chStat.addEventListener("characteristicvaluechanged", hStat);
     await withTimeout((async () => { await chData.startNotifications(); await chResp.startNotifications(); await chStat.startNotifications(); })(), 5000, "Enabling notifications");
+    chSnd = null;                                   // sound levels: only on the XIAO Sense (0.4.0+)
+    try { chSnd = await withTimeout(svc.getCharacteristic(U_SND), 3000, "Sound"); chSnd.addEventListener("characteristicvaluechanged", hSnd); await chSnd.startNotifications(); }
+    catch (e) { chSnd = null; }
     connecting = false;
     setLink("Connected", "ok"); log(attempts > 1 ? `Reconnected to ${device.name} after ${attempts} tries` : `Connected to ${device.name}`);
     attempts = 0;
@@ -376,6 +392,16 @@ function onResp(dv) {
     return;
   }
   if (code === 0xE3) return;                               // helmet double-tap: feature removed, ignore old firmware
+  if (code === 0xE5) {                                     // sound onset (XIAO Sense): sample index, session ms, level
+    const idx = dv.getUint32(1, true), ms = dv.getUint32(5, true), db = dv.getUint8(9) / 2, rise = dv.getUint8(10);
+    if (rec && !rec.sounds.some(x => x.idx === idx)) rec.sounds.push({ idx, ms, db, rise, phone: Date.now() });
+    $("sndNow").textContent = `Sound started at sample ${idx}: ${db.toFixed(0)} dB`; renderSounds(); return;
+  }
+  if (code === 0xE6) {                                     // sound summary: duration, peak, class, frequency
+    const idx = dv.getUint32(1, true), dur = dv.getUint16(5, true), peak = dv.getUint8(7) / 2, cls = SND_CLASS[dv.getUint8(8)] || "other", hz = dv.getUint8(9) * 20, rise = dv.getUint8(10);
+    if (rec) { let x = rec.sounds.find(z => z.idx === idx); if (!x) { x = { idx, phone: Date.now() }; rec.sounds.push(x); } Object.assign(x, { dur, peak, cls, hz, rise }); }
+    log(`Sound: ${cls}, ${dur} ms, peak ${peak.toFixed(0)} dB, ~${hz} Hz, at sample ${idx}`); renderSounds(); return;
+  }
   if (code === 0xE0) log(`Button: ${["","short","long","double"][dv.getUint8(1)] || dv.getUint8(1)} press`);
   else if (code === 0xE1) log(`Low battery: ${dv.getUint8(1)} %`);
   else if (code === 0xE4) log(dv.getUint8(1) === 1 ? "Sensor stopped the recording: no movement for 30 min" : "Sensor going to sleep (no movement). Move it to wake it.");
@@ -388,15 +414,33 @@ function onResp(dv) {
   }
 }
 
+function onSound(dv) {                                     // 20 ms sound levels (bench tuning)
+  if (dv.getUint8(0) !== 0x10) return;
+  const n = dv.getUint8(1), ms = dv.getUint32(2, true);
+  let last = null;
+  for (let k = 0; k < n; k++) { const o = 6 + 3 * k; last = [ms + 20 * k, dv.getUint8(o) / 2, dv.getUint8(o + 1) * 20, dv.getUint8(o + 2) * 20]; if (rec) rec.levels.push(last); }
+  if (last) {
+    const fl = status && status.snd ? status.snd.floor : 0;
+    $("mLvl").style.width = Math.max(0, Math.min(100, (last[1] - 30) / 90 * 100)) + "%";
+    $("mFloor").style.left = Math.max(0, Math.min(100, (fl - 30) / 90 * 100)) + "%";
+    $("sndNow").textContent = `Now ${last[1].toFixed(0)} dB · background ${fl} dB · ~${last[2]} Hz`;
+  }
+}
+function renderSounds() {
+  if (!rec) return;
+  $("tSounds").innerHTML = rec.sounds.slice(-8).reverse().map(x => `<tr><td>${x.cls || "…"}${x.dur != null ? ` · ${x.dur} ms` : ""}</td><td>${(x.peak ?? x.db ?? 0).toFixed(0)} dB${x.hz ? ` · ~${x.hz} Hz` : ""} · #${x.idx}</td></tr>`).join("");
+}
+async function setThreshold() { if (device && device.gatt.connected) { const r = await command(11, new Uint8Array([+$("sThr").value])); if (r && r.result === 1) log("This sensor has no microphone (needs the XIAO Sense with 0.4.0)."); } }
+
 function u32(v) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; }
 
 async function start() {
-  const p = new Uint8Array([+$("sRate").value, +$("sAcc").value, +$("sGyr").value, $("cBeacon").checked ? 1 : 0]);
+  const p = new Uint8Array([+$("sRate").value, +$("sAcc").value, +$("sGyr").value, ($("cBeacon").checked ? 1 : 0) | ($("cMic").checked ? 2 : 0) | ($("cMic").checked && $("cLvl").checked ? 4 : 0)]);
   const r = await command(1, p);
   if (r && r.result === 0) {
     rec = newRecording({ sessionId: (status ? status.sessionId : 0) + 1, rate: p[0], acc: p[1], gyr: p[2], startEpoch: 0 });
     markers = []; renderMarks();                          // markers belong to one session only
-    log(`Session ${rec.sessionId} started`); await command(4, (() => { const t = new DataView(new ArrayBuffer(8)); t.setBigUint64(0, BigInt(Date.now()), true); return new Uint8Array(t.buffer); })()); await command(5); }
+    log(`Session ${rec.sessionId} started`); if ($("cMic").checked) setThreshold(); await command(4, (() => { const t = new DataView(new ArrayBuffer(8)); t.setBigUint64(0, BigInt(Date.now()), true); return new Uint8Array(t.buffer); })()); await command(5); }
 }
 async function stop() { await command(2); setTimeout(() => command(5), 300); }
 function identify() { command(6, new Uint8Array([5])); }
@@ -460,7 +504,9 @@ function onStatus(dv) {
     newest: dv.getUint32(10, true), oldest: dv.getUint32(14, true), cap: dv.getUint32(18, true),
     startEpoch: Number(dv.getBigInt64(22, true)), batt: dv.getUint8(30), mv: dv.getUint16(31, true),
     imu: dv.byteLength > 33 ? dv.getUint8(33) : -1,
-    diag: dv.byteLength >= 42 ? { adv: dv.getUint8(34), advErr: dv.getUint8(35), conns: dv.getUint16(36, true), resends: dv.getUint16(38, true), replyFails: dv.getUint16(40, true) } : null };
+    diag: dv.byteLength >= 42 ? { adv: dv.getUint8(34), advErr: dv.getUint8(35), conns: dv.getUint16(36, true), resends: dv.getUint16(38, true), replyFails: dv.getUint16(40, true) } : null,
+    snd: dv.byteLength >= 48 ? { state: dv.getUint8(42), usb: !!(dv.getUint8(43) & 1), chg: !!(dv.getUint8(43) & 2), events: dv.getUint16(44, true), floor: dv.getUint8(46), thr: dv.getUint8(47) } : null,
+    diag2: dv.byteLength >= 52 ? { fifoResets: dv.getUint8(48), i2cResets: dv.getUint8(49), wordMode: dv.getUint8(50), sndDrops: dv.getUint8(51) } : null };
   if (rec && rec.sessionId && st.sessionId < rec.sessionId) log(`Warning: sensor reports session ${st.sessionId} (was ${rec.sessionId}) – it restarted or lost power, so its buffer is gone.`);
   status = st;
   if (st.sessionId && (!rec || rec.sessionId !== st.sessionId)) { rec = newRecording(st); markers = []; renderMarks(); log(`Session ${st.sessionId}: ${RATE[st.rate]} Hz`); }
@@ -475,6 +521,9 @@ function renderStatus() {
     ["Battery", `${st.batt} % (${(st.mv / 1000).toFixed(2)} V)`], ["Session", st.sessionId || "–"],
     ["Settings", `${RATE[st.rate]} Hz, ±${[2,4,8,16][st.acc]} g, ${[250,500,1000,2000][st.gyr]} °/s`],
     ["Newest sample", st.newest], ["Oldest buffered", st.oldest], ["Buffer", `${st.cap} samples (${(st.cap / RATE[st.rate]).toFixed(0)} s)`]];
+  if (st.snd) rows.push(["Microphone", `${["off", "listening", "failed to start"][st.snd.state] || st.snd.state}${st.snd.state === 1 ? `, background ${st.snd.floor} dB, threshold +${st.snd.thr} dB, ${st.snd.events} sounds` : ""}`],
+                         ["Power", st.snd.chg ? "USB, charging" : st.snd.usb ? "USB, charged" : "Battery"]);
+  if (st.diag2) rows.push(["Sense diagnostics", `FIFO restarts ${st.diag2.fifoResets}, I2C resets ${st.diag2.i2cResets}, ${st.diag2.wordMode ? "word reads" : "block reads"}, sound frames dropped ${st.diag2.sndDrops}`]);
   if (st.diag) rows.push(["Diagnostics", `adv ${["off","slow","fast","beacon"][st.diag.adv]}, err ${st.diag.advErr}, connects ${st.diag.conns}, resends ${st.diag.resends}, reply fails ${st.diag.replyFails}`]);
   $("tStatus").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
 }
@@ -621,6 +670,7 @@ function csvText() {
   const lines = [`# SkateSensor recording; device ${device ? device.name : ""}; session ${r.sessionId}; ${RATE[r.rate]} Hz; ±${[2,4,8,16][r.acc]} g; ${[250,500,1000,2000][r.gyr]} dps; session start (phone epoch ms) ${r.startEpoch}`,
     "index,sensor_ms,phone_time_iso,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,ax_raw,ay_raw,az_raw,gx_raw,gy_raw,gz_raw,status,marker"];
   const mAt = {}; for (const m of markers) if (m.idx !== null) mAt[m.idx] = (mAt[m.idx] ? mAt[m.idx] + "+" : "") + (MARK[m.code] || m.code);
+  for (const x of r.sounds || []) mAt[x.idx] = (mAt[x.idx] ? mAt[x.idx] + "+" : "") + "Sound:" + (x.cls || "?");
   for (let i = 0; i <= r.maxIdx; i++) {
     const s = r.samples[i];
     if (!s) { lines.push(`${i},,,,,,,,,,,,,,,${s === null ? "LOST" : "MISSING"},${mAt[i] || ""}`); continue; }
@@ -630,6 +680,14 @@ function csvText() {
   }
   lines.push("# ---- markers: sample_index,phone_time_iso,marker,source ----");
   for (const m of markers) lines.push(`# ${m.idx ?? ""},${new Date(m.phone).toISOString()},${MARK[m.code] || m.code},${m.source}`);
+  if (r.sounds && r.sounds.length) {
+    lines.push("# ---- sounds: sample_index,session_ms,class,duration_ms,peak_db,onset_db,rise_db,freq_hz ----");
+    for (const x of r.sounds) lines.push(`# ${x.idx},${x.ms ?? ""},${x.cls || ""},${x.dur ?? ""},${x.peak ?? ""},${x.db ?? ""},${x.rise ?? ""},${x.hz ?? ""}`);
+  }
+  if (r.levels && r.levels.length) {
+    lines.push("# ---- sound levels (20 ms frames): session_ms,level_db,zero_cross_hz,slope_hz ----");
+    for (const l of r.levels) lines.push(`# ${l.join(",")}`);
+  }
   lines.push("# ---- recorder log ----");
   for (const l of fullLog) lines.push("# " + l);
   return lines.join("\n") + "\n";
@@ -664,6 +722,7 @@ async function copyCsv() {
 $("bConnect").onclick = connect;
 $("bDisconnect").onclick = disconnect;
 $("bStart").onclick = start;
+$("sThr").onchange = setThreshold;
 $("bStop").onclick = stop;
 $("bIdent").onclick = identify;
 $("bDrop").onclick = simulateDropout;
