@@ -333,7 +333,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.23";
+const APP_VERSION = "0.24";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -968,27 +968,29 @@ function lapList(empty) {
 }
 const mmss = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(x).padStart(2, "0"); };
 function fmtTime(s) { const m = Math.floor(s / 60), r = s - m * 60; return `${String(m).padStart(2, "0")}:${r.toFixed(1).padStart(4, "0")}`; }
+function whoChips(k) {                               // small: who is being timed (only before the start; a quiet note while timing someone else)
+  if (!SW.running && !SW.stopped) return `<div class="chips" id="swwho" style="padding:0 0 6px"><span class="meta" style="align-self:center">${T("sw_timing")}</span><button type="button" class="chip ${SW.forOther ? "" : "on"}" data-v="me">${esc(k.display_name)}</button><button type="button" class="chip ${SW.forOther ? "on" : ""}" data-v="other">${T("sw_other")}</button></div>`;
+  return SW.forOther ? `<div class="meta" style="margin:0 0 6px">${T("sw_other_on", { name: esc(k.display_name) })}</div>` : "";
+}
 screens.stopwatch = () => {
   const k = currentSkater();
   if (!k) { setTimeout(() => go("skate")); return ""; }
   const el = SW.running ? (performance.now() - SW.t0) / 1000 : SW.stopped;
   const open = S.sessions.filter(x => x.source === "stopwatch" && (Date.now() - new Date(x.end)) < WINDOW_H * 36e5).sort((a, b) => b.end.localeCompare(a.end))[0];
   const rc = SW.race && (S.events || []).find(z => z.id === SW.race.eid), rr = rc && rc.races.find(z => z.id === SW.race.rid);
-  if (rr || SW.practice) return `${back(rr ? "race" : "live", "")}<h1>${rr ? esc(raceLabel(rr)) : T("act_time_laps")}</h1><p class="sub">${rr ? esc(rr.who === "other" ? (rr.other_label || t("someone_else")) : (rc.name || "")) + " · " : ""}${T("race_timing_d")}</p>
+  if (rr || SW.practice) return `${back(rr ? "race" : "live", "")}<h1>${rr ? esc(raceLabel(rr)) : T("act_time_laps")}</h1><p class="sub">${rr ? esc(rr.who === "other" ? (rr.other_label || t("someone_else")) : (rc.name || "")) + " · " : ""}${T("race_timing_d")}</p>${!rr ? whoChips(k) : ""}
   <div class="${rr ? "gz-racebox raced" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
   <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_save")}</button>` : `<button id="go">${T("sw_start")}</button>`}</div>
-  ${!rr ? (!SW.running && !SW.stopped ? `<div class="seg" id="swwho"><button type="button" data-v="me" class="${SW.forOther ? "" : "on"}">${esc(k.display_name)}</button><button type="button" data-v="other" class="${SW.forOther ? "on" : ""}">${T("sw_other")}</button></div>` : SW.forOther ? `<div class="badge" style="margin:6px 0">${T("sw_other_on", { name: esc(k.display_name) })}</div>` : "") : ""}
-  <div class="laps card">${lapList(T("race_timing_hint"))}</div>${!SW.running ? linesCard(timingRink()) : ""}`;
-  const oth = !SW.running && !SW.stopped ? `<div class="seg" id="swwho"><button type="button" data-v="me" class="${SW.forOther ? "" : "on"}">${esc(k.display_name)}</button><button type="button" data-v="other" class="${SW.forOther ? "on" : ""}">${T("sw_other")}</button></div>` : SW.forOther ? `<div class="badge" style="margin:6px 0">${T("sw_other_on", { name: esc(k.display_name) })}</div>` : "";
-  return `${back("skate", "")}<h1>${T("stopwatch")}</h1><p class="sub">${open ? T("sw_open", { rink: esc((rinkOf(open) || {}).short || ""), time: esc(tod(open.date)), n: okItems(open).length }) : T("sw_sub")}</p>
+  <div class="laps card">${lapList(T("race_timing_hint"))}</div>${!SW.running && !SW.stopped ? linesCard(timingRink(), rr ? rr.m : null) : ""}`;
+  return `${back("skate", "")}<h1>${T("stopwatch")}</h1><p class="sub">${open ? T("sw_open", { rink: esc((rinkOf(open) || {}).short || ""), time: esc(tod(open.date)), n: okItems(open).length }) : T("sw_sub")}</p>${whoChips(k)}
   <div class="timer" id="tm">${fmtTime(el)}</div>
   <div class="row">
     ${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_next")}</button>`
       : `<button id="go">${T("sw_start")}</button>`}
-  </div>${oth}
-  <div class="laps card">${lapList(T("stopwatch_d"))}</div>${!SW.running ? linesCard(timingRink()) : ""}
+  </div>
+  <div class="laps card">${lapList(T("stopwatch_d"))}</div>${!SW.running && !SW.stopped ? linesCard(timingRink(), null) : ""}
   <button class="link" onclick="go('others')">${T("ot_link", { n: (S.others || []).length })}</button>`;
 };
 screens.stopwatch.init = () => {
@@ -1234,9 +1236,9 @@ screens.rink = () => {
   if (!r) { setTimeout(() => go("rinks")); return ""; }
   const rows = [["lap1", "best_lap"], ["lap3", "best_3"], ["lap5", "best_5"]].map(([m, l]) => [m, l, k && rinkStats(k, r.id, m)]);
   const ss = k ? sessionsFor(k).filter(x => x.rink_id === r.id).sort((a, b) => b.date.localeCompare(a.date)) : [];
-  const st0 = lineOf(r, "start"), fi0 = lineOf(r, "finish");
+  const fi0 = lineOf(r, "finish");
   return `${back("rinks", "")}<h1>${esc(r.name)}</h1><p class="sub">${T("lap_len", { m: r.lap_m })} · ${T(r.loc ? "loc_known" : "loc_unknown")}</p>
-  <div class="card tap" id="rsetup"><b>${T("rs_card")}</b> <span class="chev">›</span><div class="meta">${T(r.geo ? (r.geo.src === "walk" ? "rs_c_walk" : "rs_c_oval") : "rs_c_none")} · ${st0 && fi0 ? T("rs_c_lines") : T("rs_c_nolines")}</div></div>
+  <div class="card tap" id="rsetup"><b>${T("rs_card")}</b> <span class="chev">›</span><div class="meta">${T(r.geo ? (r.geo.src === "walk" ? "rs_c_walk" : "rs_c_oval") : "rs_c_none")} · ${fi0 ? T("rs_c_lines") : T("rs_c_nolines")}</div></div>
   ${k ? `<h2>${T("bests_at", { name: esc(k.display_name) })}</h2><div class="card">${rows.map(([m, l, st]) => `<div class="kv ${st ? "tap" : ""}" ${st ? `data-m="${m}"` : ""}><span>${T(l)}</span><span>${st ? `<b>${fmtLap(st.best)} s</b> · ${T("avg_short")} ${fmtLap(st.avg)} ›` : "–"}</span></div>`).join("")}</div>
   <div class="hint">${T("hand_timed_note")}</div>` : ""}
   <h2>${T("sessions_here")}</h2>${ss.map(sessionCard).join("") || `<div class="card meta">${T("not_skated")}</div>`}
@@ -1329,6 +1331,7 @@ function nelderMead(f, x0, step, it) {
   return P[F.indexOf(Math.min(...F))];
 }
 const rinkById = id => S.rinks.find(r => r.id === id);
+S.rinks.forEach(r => (r.marks || []).forEach(m => { if (m.kind === "start") m.kind = "start_" + (5 * (r.lap_m || 200)); }));   // 0.23 marks: "start" meant the 5-lap start
 function lineOf(r, kind) {                           // every parent's mark is one vote; the line is their accuracy-weighted mean
   const M = (r.marks || []).filter(m => m.kind === kind); if (!M.length) return null;
   const w = M.map(m => 1 / Math.max(m.acc, 1) ** 2), W = w.reduce((a, b) => a + b, 0);
@@ -1336,8 +1339,17 @@ function lineOf(r, kind) {                           // every parent's mark is o
   if (r.geo) { const [x, y] = GEO.xy(r.geo.origin, p); p.s = GEO.sOf(r.geo, r.lap_m, x, y); }
   return p;
 }
-function rinkLinesDist(r) { const a = lineOf(r, "start"), b = lineOf(r, "finish"); if (!a || !b || a.s == null) return null;
-  const P = r.lap_m || GEO.perim(r.geo, GEO.rad(r.geo, r.lap_m)); return ((b.s - a.s) % P + P) % P; }
+function raceDist(r, m) {                          // measured race distance from its lines: full laps + the stretch from start to finish
+  const [a, b] = neededLines(r, m).map(kd => lineOf(r, kd)); if (!a || !b || a.s == null || b.s == null) return null;
+  const P = r.lap_m || GEO.perim(r.geo, GEO.rad(r.geo, r.lap_m)), part = ((b.s - a.s) % P + P) % P, full = Math.floor((m - part + P * 0.25) / P);
+  return { part, laps: full, d: full * P + part };
+}
+function raceLinesCard(r) {
+  const F = FORMATS.filter(m => lineOf(r, "start_" + m));
+  return `<h2>${T("rs_races")}</h2><div class="card">${F.map(m => { const st = lineOf(r, "start_" + m), d = r.geo ? raceDist(r, m) : null;
+      return `<div class="kv"><span>${m} m</span><span>${st ? (d ? T(d.laps === 1 ? "rs_race_d1" : "rs_race_d", { laps: d.laps, part: Math.round(d.part), d: Math.round(d.d) }) : T("rs_race_marked")) : T("rs_unmarked")}</span></div>`; }).join("") || `<div class="meta">${T("rs_races_none")}</div>`}</div>
+    <div class="hint">${T("rs_races_hint")}</div>`;
+}
 function drawRink(cv, r, raw) {                      // edge, skating line, the walk and the marked lines on a canvas
   if (!cv) return; const x = cv.getContext("2d"), W = cv.width, H = cv.height; x.clearRect(0, 0, W, H);
   const g = r && r.geo, pts = [];
@@ -1350,27 +1362,27 @@ function drawRink(cv, r, raw) {                      // edge, skating line, the 
   x.fillStyle = "#8a93a8"; rawXY.forEach(p => { x.beginPath(); x.arc(X(p), Y(p), 2, 0, 7); x.fill(); });
   const poly = (P, col, w, dash) => { if (!P.length) return; x.beginPath(); x.setLineDash(dash || []); x.strokeStyle = col; x.lineWidth = w; P.forEach((p, i) => i ? x.lineTo(X(p), Y(p)) : x.moveTo(X(p), Y(p))); x.stroke(); x.setLineDash([]); };
   poly(edge, "#c9d1e3", 2); poly(line, "#5CE1FF", 3);
-  const same = g && (() => { const a = lineOf(r, "start"), b = lineOf(r, "finish"); return a && b && Math.abs(a.s - b.s) < 2; })();
-  if (g) [["start", "#D4F53C"], ["finish", "#F2923A"]].forEach(([kind, col]) => { const L = lineOf(r, kind); if (!L || (same && kind === "start")) return;
-    const rs = GEO.rad(g, r.lap_m), a = GEO.at(g, g.R + 3, GEO.remap(g, rs, L.s, g.R + 3)), b = GEO.at(g, rs - 4, GEO.remap(g, rs, L.s, rs - 4));
-    x.strokeStyle = col; x.lineWidth = 4; x.beginPath(); x.moveTo(X(a), Y(a)); x.lineTo(X(b), Y(b)); x.stroke();
-    x.fillStyle = col; x.font = "bold 13px Inter, sans-serif"; x.fillText(t(same ? "rl_both" : kind === "start" ? "rl_start" : "rl_finish"), X(a) + 6, Y(a) - 6); });
+  if (g) { const rs = GEO.rad(g, r.lap_m), kinds = [...new Set((r.marks || []).map(m => m.kind))], placed = [];
+    kinds.forEach(kd => { const L = lineOf(r, kd); if (!L || L.s == null) return; const col = kd.startsWith("start") ? "#D4F53C" : "#F2923A";
+      const a = GEO.at(g, g.R + 3, GEO.remap(g, rs, L.s, g.R + 3)), b = GEO.at(g, rs - 4, GEO.remap(g, rs, L.s, rs - 4));
+      x.strokeStyle = col; x.lineWidth = 4; x.beginPath(); x.moveTo(X(a), Y(a)); x.lineTo(X(b), Y(b)); x.stroke();
+      const near = placed.filter(p => Math.hypot(p[0] - X(a), p[1] - Y(a)) < 18).length; placed.push([X(a), Y(a)]);
+      x.fillStyle = col; x.font = "bold 12px Inter, sans-serif"; x.fillText(lineName(kd), X(a) + 6, Y(a) + 14 + near * 14); }); }
 }
 const WALK = { fixes: [], watch: null, on: false, lock: null, res: null };
 screens.rinksetup = () => {
   const r = rinkById(S.viewRink); if (!r) { setTimeout(() => go("rinks")); return ""; }
-  const g = r.geo, st = lineOf(r, "start"), fi = lineOf(r, "finish"), sf = rinkLinesDist(r);
+  const g = r.geo, fi = lineOf(r, "finish");
   const ln = L => L ? T("rs_marked", { acc: Math.round(L.acc), n: L.n }) : T("rs_unmarked");
   return `${back(S.setupNext || "rink", "")}<h1>${T("rs_title", { name: esc(r.name) })}</h1><p class="sub">${T(S.setupPrompt ? "rs_sub_new" : "rs_sub")}</p>
   ${g ? `<canvas id="rsc" width="640" height="300" style="width:100%;background:var(--card);border-radius:12px"></canvas>` : ""}
   <div class="card">
     <div class="kv"><span>${T("rs_shape")}</span><span>${g ? T(g.src === "walk" ? "rs_shape_walk" : "rs_shape_oval", { err: g.err ? g.err.toFixed(1) : "–", date: esc(dfmt(new Date(g.at), { day: "numeric", month: "short" })) }) : T("rs_shape_none")}</span></div>
     ${g ? `<div class="kv"><span>${T("rs_line")}</span><span>${T("rs_line_v", { lap: r.lap_m, off: GEO.offset(g, r.lap_m).toFixed(1) })}</span></div>` : ""}
-    <div class="kv"><span>${T("rl_start")}</span><span>${ln(st)}</span></div>
-    <div class="kv"><span>${T("rl_finish")}</span><span>${ln(fi)}</span></div>
-    ${sf != null ? `<div class="kv"><span>${T("rs_sf")}</span><span>${sf < 2 || sf > (r.lap_m || 1e9) - 2 ? T("rs_sf_same") : T("rs_sf_v", { m: Math.round(sf) })}</span></div>` : ""}
+    <div class="kv"><span>${T("ln_finish")}</span><span>${ln(fi)}</span></div>
   </div>
-  ${!st || !fi ? `<div class="hint">${T("rs_mark_hint")}</div>` : ""}
+  ${raceLinesCard(r)}
+  <div class="hint">${T("rs_mark_hint")}</div>
   <button id="rswalk">${T(g && g.src === "walk" ? "rs_walk_again" : "rs_walk")}</button>
   <button class="secondary" id="rsoval">${T("rs_oval")}</button>
   ${S.setupPrompt ? `<button class="link" id="rslater">${T("rs_later")}</button>` : ""}
@@ -1492,30 +1504,42 @@ function timingRink() {
   if (SW.practice && S.live) return rinkById(S.live.rink_id);
   const k = currentSkater(); return rinkById(S.swRink || (k && lastOf(k.id, "rink_id")) || (S.rinks[0] || {}).id);
 }
-function linesCard(r) {
-  if (!r) return "";
-  const st = lineOf(r, "start"), fi = lineOf(r, "finish");
-  if (st && fi) return `<div class="meta" style="margin:6px 0">${T("lm_done", { rink: esc(r.short) })} <button class="link" data-mark="start">${T("lm_again_s")}</button> · <button class="link" data-mark="finish">${T("lm_again_f")}</button></div>`;
-  return `<div class="card"><b>${T("lm_h", { rink: esc(r.short) })}</b><div class="meta">${T("lm_d")}</div>
-    <div class="row" style="margin-top:8px">${st ? `<span class="badge">✓ ${T("rl_start")}</span>` : `<button class="secondary" data-mark="start">${T("lm_start")}</button>`}${fi ? `<span class="badge">✓ ${T("rl_finish")}</span>` : `<button class="secondary" data-mark="finish">${T("lm_finish")}</button>`}</div></div>`;
+// which lines a timing needs: laps → the lap/finish line; a race → its own start line, and its own finish line when it is a lap or less
+// (single-lap races start and finish on separate lines, so the race is a little more than a lap); race lines rarely change at a rink
+function neededLines(r, m) {
+  if (!m) return ["finish"];
+  return m <= (r.lap_m || 200) ? ["start_" + m, "finish_" + m] : ["start_" + m, "finish"];
+}
+function lineName(kind) {
+  if (kind === "finish") return t("ln_finish");
+  const [a, m] = kind.split("_"); return t(a === "start" ? "ln_start_m" : "ln_finish_m", { m });
+}
+function linesCard(r, m) {                           // shown only while a line this timing needs is unknown, and only until dismissed
+  if (!r || SW.linesLater === (r.id + ":" + (m || ""))) return "";
+  const miss = neededLines(r, m).filter(kd => !lineOf(r, kd)); if (!miss.length) return "";
+  return `<div class="card" style="padding:12px 14px"><b>${T(m ? "lm_h_race" : "lm_h", { rink: esc(r.short), m })}</b><div class="meta">${T("lm_d")}</div>
+    <div class="chips" style="padding:8px 0 0;flex-wrap:wrap">${miss.map(kd => `<button type="button" class="chip on" data-mark="${kd}">${esc(lineName(kd))} ${T("lm_here")}</button>`).join("")}<button type="button" class="chip" id="lmlater">${T("lm_later")}</button></div></div>`;
 }
 function markLine(r, kind) {
+  const lname = lineName(kind), isStart = kind.startsWith("start");
   const box = document.createElement("div"); box.className = "lmodal"; document.body.appendChild(box);
   const close = () => { if (box.watch != null && navigator.geolocation) navigator.geolocation.clearWatch(box.watch); box.remove(); };
   const pic = `<svg viewBox="0 0 300 110" style="width:100%;max-width:320px"><rect x="20" y="15" width="260" height="80" rx="40" fill="none" stroke="#c9d1e3" stroke-width="3"/><rect x="45" y="35" width="210" height="40" rx="20" fill="none" stroke="#5CE1FF" stroke-width="2" stroke-dasharray="5 5"/>
-    <line x1="150" y1="75" x2="150" y2="95" stroke="${kind === "start" ? "#D4F53C" : "#F2923A"}" stroke-width="5"/><circle cx="150" cy="104" r="5" fill="#fff"/><text x="160" y="108" fill="#c9d1e3" font-size="11">${esc(t("lm_you"))}</text></svg>`;
-  const step1 = () => { box.innerHTML = `<div class="lm"><b>${T(kind === "start" ? "lm_start" : "lm_finish")}</b>${pic}<p>${T("lm_how", { line: esc(t(kind === "start" ? "rl_start_l" : "rl_finish_l")) })}</p>
+    <line x1="150" y1="75" x2="150" y2="95" stroke="${isStart ? "#D4F53C" : "#F2923A"}" stroke-width="5"/><circle cx="150" cy="104" r="5" fill="#fff"/><text x="160" y="108" fill="#c9d1e3" font-size="11">${esc(t("lm_you"))}</text></svg>`;
+  const step1 = () => { box.innerHTML = `<div class="lm"><b>${esc(lname)}</b>${pic}<p>${T("lm_how", { line: esc(lname.toLowerCase()) })}</p>
     <div class="row"><button class="secondary" id="lmx">${T("cancel")}</button><button id="lmgo">${T("lm_hold")}</button></div></div>`;
     $("#lmx").onclick = close; $("#lmgo").onclick = step2; };
   const save = (fx, rough) => { (r.marks = r.marks || []).push({ kind, lat: fx.lat, lng: fx.lng, acc: +fx.acc.toFixed(1), n: fx.n, at: new Date().toISOString(), by: role(), rough: !!rough });
-    persist(); close(); toast(t(kind === "start" ? "lm_saved_s" : "lm_saved_f")); render(); };
+    persist(); close(); toast(t("lm_saved", { line: lname })); render(); };
   const step2 = () => {
     const F = []; let left = 5;
     box.innerHTML = `<div class="lm"><b>${T("lm_still")}</b><div class="timer" id="lmc" style="font-size:64px">5</div><div class="meta" id="lmn">${T("lm_gps_wait")}</div></div>`;
     if (navigator.geolocation) box.watch = navigator.geolocation.watchPosition(p => { F.push(p.coords); const e = $("#lmn"); if (e) e.textContent = t("lm_gps_n", { n: F.length, acc: Math.round(p.coords.accuracy) }); }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
     const tick = setInterval(() => { left--; const e = $("#lmc"); if (e) e.textContent = Math.max(left, 0); if (left > 0) return; clearInterval(tick);
       if (!F.length && S.demo && r.geo) {               // demo without GPS: a mark on the edge beside the end of the home straight
-        const g = r.geo, q = GEO.at(g, g.R, g.L - 8), p = GEO.ll(g.origin, q[0], q[1]);
+        const g = r.geo, rs = GEO.rad(g, r.lap_m), sf = g.L - 8, lap = r.lap_m || GEO.perim(g, rs), m = +(kind.split("_")[1] || 0);
+        const sl = kind === "finish" ? sf : kind.startsWith("finish") ? sf : m > lap ? sf - (m % lap) : sf - 10;   // demo: 500 m starts half a lap back; single-lap races start 10 m before their finish
+        const q = GEO.at(g, g.R, GEO.remap(g, rs, sl, g.R)), p = GEO.ll(g.origin, q[0], q[1]);
         return save({ lat: p.lat, lng: p.lng, acc: 3, n: 5 }); }
       if (!F.length) { box.innerHTML = `<div class="lm"><b>${T("lm_nogps")}</b><p>${T("lm_nogps_d")}</p><div class="row"><button class="secondary" id="lmx">${T("cancel")}</button><button id="lmre">${T("lm_retry")}</button></div></div>`; $("#lmx").onclick = close; $("#lmre").onclick = step2; return; }
       const w = F.map(c => 1 / Math.max(c.accuracy, 1) ** 2), W = w.reduce((a, b) => a + b, 0);
@@ -1527,7 +1551,9 @@ function markLine(r, kind) {
   };
   step1();
 }
-function wireLines() { document.querySelectorAll("[data-mark]").forEach(b => b.onclick = () => { const r = timingRink(); if (r) markLine(r, b.dataset.mark); }); }
+function wireLines(r) { document.querySelectorAll("[data-mark]").forEach(b => b.onclick = () => { const rk = r || timingRink(); if (rk) markLine(rk, b.dataset.mark); });
+  if ($("#lmlater")) $("#lmlater").onclick = () => { const rk = timingRink(), rc = SW.race && (S.events || []).find(z => z.id === SW.race.eid), rr = rc && rc.races.find(z => z.id === SW.race.rid);
+    SW.linesLater = rk.id + ":" + (rr ? rr.m : ""); render(); }; }
 // ---------------------------------------------------------------- timing other skaters: kept apart, never counted in the family's own data
 screens.othersave = () => {
   if (!SW.stopped) { setTimeout(() => go("stopwatch")); return ""; }
