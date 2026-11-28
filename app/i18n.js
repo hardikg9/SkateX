@@ -884,5 +884,7 @@ Object.assign(SL_I18N.en, {                          // v0.23 rink setup, line m
   lm_h_race: "First {m} m race timed at {rink}", lm_here: "here", lm_later: "Not now", lm_saved: "{line} marked",
   rs_races: "Race lines", rs_race_d: "{laps} laps + {part} m = {d} m", rs_race_d1: "1 lap + {part} m = {d} m", rs_race_marked: "start marked", rs_races_none: "None yet. Each race distance's lines are marked the first time one is timed here.",
   rs_races_hint: "Race lines rarely change at a rink. If they are repainted, re-mark them the next time you time that race.",
+  rs_remark: "Re-mark {line}", rs_race_marked_l: "marked", rs_own_finish: "Its own finish line (a lap or less)", rs_lap_finish: "Finishes on the lap line",
+  rs_other_d: "Other distances", rs_races_hint2: "Mark these at the rink, standing on the edge level with each line, any time: now, or when you first time that race (the app asks then). They rarely change.",
   rw_save: "Save shape", ro_save: "Save oval", rl_both: "Start / finish line", rs_sf_same: "the same line"
 });

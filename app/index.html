@@ -333,7 +333,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.24";
+const APP_VERSION = "0.25";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -1344,11 +1344,20 @@ function raceDist(r, m) {                          // measured race distance fro
   const P = r.lap_m || GEO.perim(r.geo, GEO.rad(r.geo, r.lap_m)), part = ((b.s - a.s) % P + P) % P, full = Math.floor((m - part + P * 0.25) / P);
   return { part, laps: full, d: full * P + part };
 }
-function raceLinesCard(r) {
-  const F = FORMATS.filter(m => lineOf(r, "start_" + m));
-  return `<h2>${T("rs_races")}</h2><div class="card">${F.map(m => { const st = lineOf(r, "start_" + m), d = r.geo ? raceDist(r, m) : null;
-      return `<div class="kv"><span>${m} m</span><span>${st ? (d ? T(d.laps === 1 ? "rs_race_d1" : "rs_race_d", { laps: d.laps, part: Math.round(d.part), d: Math.round(d.d) }) : T("rs_race_marked")) : T("rs_unmarked")}</span></div>`; }).join("") || `<div class="meta">${T("rs_races_none")}</div>`}</div>
-    <div class="hint">${T("rs_races_hint")}</div>`;
+function raceLinesCard(r) {                          // every race distance the rink runs: its start line, and its own finish line for races of a lap or less
+  const lap = r.lap_m || 200, main = [200, 500, 1000], shown = [...new Set([...main, ...FORMATS.filter(m => lineOf(r, "start_" + m))])].sort((a, b) => a - b);
+  const btn = (kd, label) => lineOf(r, kd) ? `<button type="button" class="chip" data-mark="${kd}">${T("rs_remark", { line: esc(label) })}</button>` : `<button type="button" class="chip on" data-mark="${kd}">${esc(label)} ${T("lm_here")}</button>`;
+  const row = m => { const d = r.geo ? raceDist(r, m) : null, st = lineOf(r, "start_" + m), fn = m <= lap ? lineOf(r, "finish_" + m) : lineOf(r, "finish");
+    return `<div style="border-top:1px solid var(--line);padding:10px 0 4px"><div class="kv" style="border:0;padding:0"><span><b>${m} m</b></span><span>${d ? T(d.laps === 1 ? "rs_race_d1" : "rs_race_d", { laps: d.laps, part: Math.round(d.part), d: Math.round(d.d) }) : st && fn ? T("rs_race_marked") : T("rs_unmarked")}</span></div>
+      <div class="meta">${m <= lap ? T("rs_own_finish") : T("rs_lap_finish")}</div>
+      <div class="chips" style="padding:6px 0 0;flex-wrap:wrap">${btn("start_" + m, t("rl_start_l"))}${m <= lap ? btn("finish_" + m, t("rl_finish_l")) : ""}</div></div>`; };
+  const other = FORMATS.filter(m => !shown.includes(m));
+  return `<h2>${T("rs_races")}</h2><div class="card" style="padding-top:6px">
+    <div style="padding:6px 0 4px"><div class="kv" style="border:0;padding:0"><span><b>${T("ln_finish")}</b></span><span>${lineOf(r, "finish") ? T("rs_race_marked_l") : T("rs_unmarked")}</span></div>
+      <div class="chips" style="padding:6px 0 0">${btn("finish", t("ln_finish").toLowerCase())}</div></div>
+    ${shown.map(row).join("")}
+    ${other.length ? `<details style="border-top:1px solid var(--line);padding-top:8px"><summary class="meta">${T("rs_other_d")}</summary>${other.map(row).join("")}</details>` : ""}</div>
+    <div class="hint">${T("rs_races_hint2")}</div>`;
 }
 function drawRink(cv, r, raw) {                      // edge, skating line, the walk and the marked lines on a canvas
   if (!cv) return; const x = cv.getContext("2d"), W = cv.width, H = cv.height; x.clearRect(0, 0, W, H);
@@ -1366,7 +1375,7 @@ function drawRink(cv, r, raw) {                      // edge, skating line, the 
     kinds.forEach(kd => { const L = lineOf(r, kd); if (!L || L.s == null) return; const col = kd.startsWith("start") ? "#D4F53C" : "#F2923A";
       const a = GEO.at(g, g.R + 3, GEO.remap(g, rs, L.s, g.R + 3)), b = GEO.at(g, rs - 4, GEO.remap(g, rs, L.s, rs - 4));
       x.strokeStyle = col; x.lineWidth = 4; x.beginPath(); x.moveTo(X(a), Y(a)); x.lineTo(X(b), Y(b)); x.stroke();
-      const near = placed.filter(p => Math.hypot(p[0] - X(a), p[1] - Y(a)) < 18).length; placed.push([X(a), Y(a)]);
+      const near = placed.filter(p => Math.abs(p[0] - X(a)) < 90 && Math.abs(p[1] - Y(a)) < 30).length; placed.push([X(a), Y(a)]);
       x.fillStyle = col; x.font = "bold 12px Inter, sans-serif"; x.fillText(lineName(kd), X(a) + 6, Y(a) + 14 + near * 14); }); }
 }
 const WALK = { fixes: [], watch: null, on: false, lock: null, res: null };
@@ -1379,10 +1388,8 @@ screens.rinksetup = () => {
   <div class="card">
     <div class="kv"><span>${T("rs_shape")}</span><span>${g ? T(g.src === "walk" ? "rs_shape_walk" : "rs_shape_oval", { err: g.err ? g.err.toFixed(1) : "–", date: esc(dfmt(new Date(g.at), { day: "numeric", month: "short" })) }) : T("rs_shape_none")}</span></div>
     ${g ? `<div class="kv"><span>${T("rs_line")}</span><span>${T("rs_line_v", { lap: r.lap_m, off: GEO.offset(g, r.lap_m).toFixed(1) })}</span></div>` : ""}
-    <div class="kv"><span>${T("ln_finish")}</span><span>${ln(fi)}</span></div>
   </div>
   ${raceLinesCard(r)}
-  <div class="hint">${T("rs_mark_hint")}</div>
   <button id="rswalk">${T(g && g.src === "walk" ? "rs_walk_again" : "rs_walk")}</button>
   <button class="secondary" id="rsoval">${T("rs_oval")}</button>
   ${S.setupPrompt ? `<button class="link" id="rslater">${T("rs_later")}</button>` : ""}
@@ -1390,7 +1397,7 @@ screens.rinksetup = () => {
 };
 screens.rinksetup.init = () => {
   const r = rinkById(S.viewRink); if (!r) return;
-  drawRink($("#rsc"), r, null);
+  drawRink($("#rsc"), r, null); wireLines(r);
   $("#rswalk").onclick = () => { Object.assign(WALK, { fixes: [], on: false, res: null }); go("rinkwalk"); };
   $("#rsoval").onclick = () => go("rinkoval");
   if ($("#rslater")) $("#rslater").onclick = () => { const n = S.setupNext; S.setupPrompt = false; S.setupNext = null; persist(); go(n || "rinks"); };
