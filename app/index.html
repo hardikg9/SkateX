@@ -46,6 +46,9 @@
   a { color: var(--link); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 10px 0; }
   .card.tap { cursor: pointer; }
+  .lmodal { position: fixed; inset: 0; background: rgba(5,8,20,.72); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .lmodal .lm { background: var(--card); border-radius: 16px; padding: 18px; max-width: 420px; width: 100%; text-align: center; }
+  .lmodal .lm p { color: var(--muted); }
   .seg { display: flex; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
   .seg button { margin: 0; border-radius: 0; background: var(--card); color: var(--ink); font-weight: 600; padding: 12px 6px; border: 0; outline: 0; text-transform: none; letter-spacing: 0; font-size: 15px; }
   .seg button + button { border-left: 1.5px solid var(--line); }
@@ -330,7 +333,7 @@
 <script src="i18n.js"></script>
 <script>
 "use strict";
-const APP_VERSION = "0.22";
+const APP_VERSION = "0.23";
 const LEGAL = { terms: "1.0-draft", privacy: "1.0-draft" };
 const KEY = "skatelog.proto.v2";
 const PRICES = { pro: 10000, elite: 15000, coach: 1000 };
@@ -341,7 +344,7 @@ let mem = null;
 function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return mem || {}; } }
 function save(s) { mem = s; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } }
 let S = load();
-function fresh() { return { settings: { lang: (S && S.settings && S.settings.lang) || "en" }, skaters: [], sessions: [], plans: [], events: [], sensors: [], ai: {},
+function fresh() { return { settings: { lang: (S && S.settings && S.settings.lang) || "en" }, skaters: [], sessions: [], plans: [], events: [], sensors: [], ai: {}, others: [],
   club: { feePlans: [], members: {}, payments: [], charges: [], announcements: [] } }; }
 S = Object.assign(fresh(), S);
 S.club = Object.assign({ feePlans: [], members: {}, payments: [], charges: [], announcements: [] }, S.club || {}); S.ai = S.ai || {};
@@ -975,28 +978,35 @@ screens.stopwatch = () => {
   <div class="${rr ? "gz-racebox raced" : "gz-pracbox striped"}">${rr ? LANES : ""}<div class="timer" id="tm">${fmtTime(el)}</div></div>
   <div class="row">${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_save")}</button>` : `<button id="go">${T("sw_start")}</button>`}</div>
-  <div class="laps card">${lapList(T("race_timing_hint"))}</div>`;
+  ${!rr ? (!SW.running && !SW.stopped ? `<div class="seg" id="swwho"><button type="button" data-v="me" class="${SW.forOther ? "" : "on"}">${esc(k.display_name)}</button><button type="button" data-v="other" class="${SW.forOther ? "on" : ""}">${T("sw_other")}</button></div>` : SW.forOther ? `<div class="badge" style="margin:6px 0">${T("sw_other_on", { name: esc(k.display_name) })}</div>` : "") : ""}
+  <div class="laps card">${lapList(T("race_timing_hint"))}</div>${!SW.running ? linesCard(timingRink()) : ""}`;
+  const oth = !SW.running && !SW.stopped ? `<div class="seg" id="swwho"><button type="button" data-v="me" class="${SW.forOther ? "" : "on"}">${esc(k.display_name)}</button><button type="button" data-v="other" class="${SW.forOther ? "on" : ""}">${T("sw_other")}</button></div>` : SW.forOther ? `<div class="badge" style="margin:6px 0">${T("sw_other_on", { name: esc(k.display_name) })}</div>` : "";
   return `${back("skate", "")}<h1>${T("stopwatch")}</h1><p class="sub">${open ? T("sw_open", { rink: esc((rinkOf(open) || {}).short || ""), time: esc(tod(open.date)), n: okItems(open).length }) : T("sw_sub")}</p>
   <div class="timer" id="tm">${fmtTime(el)}</div>
   <div class="row">
     ${SW.running ? `<button class="secondary" id="lap">${T("sw_lap")}</button><button id="stop" style="background:var(--signal);color:var(--midnight)">${T("sw_stop")}</button>`
       : SW.stopped ? `<button class="secondary" id="reset">${T("sw_discard")}</button><button id="savesw">${T("sw_next")}</button>`
       : `<button id="go">${T("sw_start")}</button>`}
-  </div>
-  <div class="laps card">${lapList(T("stopwatch_d"))}</div>`;
+  </div>${oth}
+  <div class="laps card">${lapList(T("stopwatch_d"))}</div>${!SW.running ? linesCard(timingRink()) : ""}
+  <button class="link" onclick="go('others')">${T("ot_link", { n: (S.others || []).length })}</button>`;
 };
 screens.stopwatch.init = () => {
   clearInterval(SW.timer);
   if (SW.running) SW.timer = setInterval(() => { const e = $("#tm"); if (!e) return clearInterval(SW.timer); e.textContent = fmtTime((performance.now() - SW.t0) / 1000); }, 100);
-  if ($("#go")) $("#go").onclick = () => { Object.assign(SW, { running: true, t0: performance.now(), laps: [], last: 0, stopped: 0, part: 0, start: new Date().toISOString() }); render(); };
+  if ($("#go")) $("#go").onclick = () => { Object.assign(SW, { running: true, t0: performance.now(), laps: [], last: 0, stopped: 0, part: 0, start: new Date().toISOString(), phoneAt: null }); render();
+    getFix(f => { if (f) SW.phoneAt = { lat: f.lat, lng: f.lng, acc: Math.round(f.acc) }; }); };     // where the parent stands: line crossings are corrected for it later
+  if ($("#swwho")) $("#swwho").onclick = e => { const b = e.target.closest("button"); if (!b) return; SW.forOther = b.dataset.v === "other"; render(); };
+  wireLines();
   if ($("#lap")) $("#lap").onclick = () => { const e = (performance.now() - SW.t0) / 1000; SW.laps.push(+(e - SW.last).toFixed(2)); SW.last = e; if (navigator.vibrate) navigator.vibrate(30); render(); };
   if ($("#stop")) $("#stop").onclick = () => { const e = Math.max(0.1, (performance.now() - SW.t0) / 1000); SW.stopped = e; SW.running = false;
     const fin = +(e - SW.last).toFixed(2), L = SW.laps.slice().sort((a, b) => a - b), med = L.length ? L[L.length >> 1] : 0;
     if (fin >= 2) { if (med && fin < 0.75 * med) SW.part = fin; else SW.laps.push(fin); }       // Stop is the finish: the last lap ends here
     if (navigator.vibrate) navigator.vibrate(60); render(); };
   if ($("#reset")) $("#reset").onclick = () => { Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0 }); render(); };
-  if ($("#savesw")) $("#savesw").onclick = () => { if (SW.race) return saveRaceTiming();
-    if (SW.practice) { const tm = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}) }; Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, practice: false }); return saveLiveTiming("laps", tm); }
+  if ($("#savesw")) $("#savesw").onclick = () => { if (SW.forOther && !SW.race) { SW.oform = null; return go("othersave"); }
+    if (SW.race) return saveRaceTiming();
+    if (SW.practice) { const tm = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}), phone_at: SW.phoneAt || null }; Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, practice: false }); return saveLiveTiming("laps", tm); }
     SW.form = null; go("swsave"); };
 };
 
@@ -1071,7 +1081,7 @@ screens.swsave.init = () => {
     let x = openSession(k.id, rinkId, now);
     if (!x) { x = { id: uid(), skater_id: k.id, date: SW.start, end: now.toISOString(), rink_id: rinkId, setup_id: setupId, source: "stopwatch", verified: false, items: [], recorded_by: role() }; S.sessions.push(x); }
     x.items.push({ id: uid(), at: SW.start, kind, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}), distance_laps: kind === "race" ? (SW.laps.length + (SW.part ? 0.5 : 0)) || null : null,
-                   setup_id: setupId, note: $("#fn").value.trim() || null });
+                   setup_id: setupId, note: $("#fn").value.trim() || null, phone_at: SW.phoneAt || null });
     x.end = now.toISOString();
     const r = S.rinks.find(z => z.id === rinkId);
     if (r && !r.loc && FIX && FIX.acc < 100) r.loc = { lat: FIX.lat, lng: FIX.lng, learned: now.toISOString() };   // the rink is recognised next time
@@ -1224,7 +1234,9 @@ screens.rink = () => {
   if (!r) { setTimeout(() => go("rinks")); return ""; }
   const rows = [["lap1", "best_lap"], ["lap3", "best_3"], ["lap5", "best_5"]].map(([m, l]) => [m, l, k && rinkStats(k, r.id, m)]);
   const ss = k ? sessionsFor(k).filter(x => x.rink_id === r.id).sort((a, b) => b.date.localeCompare(a.date)) : [];
+  const st0 = lineOf(r, "start"), fi0 = lineOf(r, "finish");
   return `${back("rinks", "")}<h1>${esc(r.name)}</h1><p class="sub">${T("lap_len", { m: r.lap_m })} · ${T(r.loc ? "loc_known" : "loc_unknown")}</p>
+  <div class="card tap" id="rsetup"><b>${T("rs_card")}</b> <span class="chev">›</span><div class="meta">${T(r.geo ? (r.geo.src === "walk" ? "rs_c_walk" : "rs_c_oval") : "rs_c_none")} · ${st0 && fi0 ? T("rs_c_lines") : T("rs_c_nolines")}</div></div>
   ${k ? `<h2>${T("bests_at", { name: esc(k.display_name) })}</h2><div class="card">${rows.map(([m, l, st]) => `<div class="kv ${st ? "tap" : ""}" ${st ? `data-m="${m}"` : ""}><span>${T(l)}</span><span>${st ? `<b>${fmtLap(st.best)} s</b> · ${T("avg_short")} ${fmtLap(st.avg)} ›` : "–"}</span></div>`).join("")}</div>
   <div class="hint">${T("hand_timed_note")}</div>` : ""}
   <h2>${T("sessions_here")}</h2>${ss.map(sessionCard).join("") || `<div class="card meta">${T("not_skated")}</div>`}
@@ -1236,7 +1248,7 @@ screens.rink = () => {
 };
 screens.rink.init = () => {
   const r = S.rinks.find(z => z.id === S.viewRink), k = currentSkater(); if (!r) return;
-  wireSessions();
+  wireSessions(); $("#rsetup").onclick = () => { S.setupPrompt = false; S.setupNext = "rink"; persist(); go("rinksetup"); };
   document.querySelectorAll("[data-m]").forEach(e => e.onclick = () => { S.viewStat = { kid: k.id, rink: r.id, metric: e.dataset.m }; persist(); go("stat"); });
   $("#rsave").onclick = () => { const v = +$("#rl").value; if (v >= 50 && v <= 1000) { r.lap_m = v; persist(); toast(t("saved")); render(); } };
   if ($("#rforget")) $("#rforget").onclick = () => { delete r.loc; persist(); render(); };
@@ -1254,10 +1266,306 @@ screens.rinkadd.init = () => {
     if (!n) return $("#err").textContent = t("rink_name_req");
     if (!(l >= 50 && l <= 1000)) return $("#err").textContent = t("lap_length_req");
     const r = { id: uid(), name: n, short: ($("#ns").value.trim() || n.split(/\s+/).map(w => w[0]).join("")).toUpperCase().slice(0, 4), lap_m: l, added: new Date().toISOString() };
-    const done = () => { S.rinks.push(r); if (SW.form) { SW.form.rink = r.id; SW.form.rinkWhy = "chosen"; } persist(); toast(t("saved")); go(S.after || "rinks"); };
+    const done = () => { S.rinks.push(r); if (SW.form) { SW.form.rink = r.id; SW.form.rinkWhy = "chosen"; } if (SW.oform) SW.oform.rink = r.id;
+      S.viewRink = r.id; S.setupPrompt = true; S.setupNext = S.after || "rinks"; persist(); toast(t("saved")); go("rinksetup"); };
     if ($("#nloc").checked) getFix(fix => { if (fix && fix.acc < 100) r.loc = { lat: fix.lat, lng: fix.lng, learned: new Date().toISOString() }; done(); }); else done();
   };
 };
+
+
+// ================================================================ v0.23 rink shape and line marks: parents only walk the outer edge, once, if they want to
+const GEO = {
+  xy(o, p) { const f = Math.PI / 180, R = 6371000; return [(p.lng - o.lng) * Math.cos(o.lat * f) * f * R, (p.lat - o.lat) * f * R]; },
+  ll(o, x, y) { const f = Math.PI / 180, R = 6371000; return { lat: o.lat + y / (f * R), lng: o.lng + x / (Math.cos(o.lat * f) * f * R) }; },
+  uv(g, x, y) { const c = Math.cos(g.th), s = Math.sin(g.th); return [(x - g.cx) * c + (y - g.cy) * s, -(x - g.cx) * s + (y - g.cy) * c]; },
+  edge(g, x, y) { const [u, v] = GEO.uv(g, x, y), a = Math.abs(u) - g.L / 2; return (a <= 0 ? Math.abs(v) : Math.hypot(a, v)) - g.R; },
+  perim: (g, rr) => 2 * g.L + 2 * Math.PI * rr,
+  offset: (g, lap) => lap ? Math.max(0, (GEO.perim(g, g.R) - lap) / (2 * Math.PI)) : 7,      // the lap is measured on the skating line
+  rad: (g, lap) => g.R - GEO.offset(g, lap),
+  at(g, rr, d) {                                     // point at distance d along a line of radius rr, counter-clockwise from the start of the first straight
+    const L = g.L, c = Math.cos(g.th), s = Math.sin(g.th); d = ((d % GEO.perim(g, rr)) + GEO.perim(g, rr)) % GEO.perim(g, rr); let u, v;
+    if (d < L) { u = -L / 2 + d; v = -rr; } else if (d < L + Math.PI * rr) { const a = (d - L) / rr; u = L / 2 + rr * Math.sin(a); v = -rr * Math.cos(a); }
+    else if (d < 2 * L + Math.PI * rr) { u = L / 2 - (d - L - Math.PI * rr); v = rr; } else { const a = (d - 2 * L - Math.PI * rr) / rr; u = -L / 2 - rr * Math.sin(a); v = rr * Math.cos(a); }
+    return [g.cx + u * c - v * s, g.cy + u * s + v * c];
+  },
+  sOf(g, lap, x, y) {                                // a point (a mark on the edge, the phone) projected straight across onto the skating line
+    const r = GEO.rad(g, lap), [u, v] = GEO.uv(g, x, y), L = g.L;
+    if (Math.abs(u) <= L / 2) return v < 0 ? u + L / 2 : L + Math.PI * r + (L / 2 - u);
+    if (u > L / 2) return L + r * Math.atan2(u - L / 2, -v);
+    return 2 * L + Math.PI * r + r * Math.atan2(-(u + L / 2), v);
+  },
+  remap(g, r1, d, r2) { const L = g.L; d = ((d % GEO.perim(g, r1)) + GEO.perim(g, r1)) % GEO.perim(g, r1);       // same spot on another line (edge vs skating line)
+    if (d < L) return d; if (d < L + Math.PI * r1) return L + (d - L) / r1 * r2; if (d < 2 * L + Math.PI * r1) return d - Math.PI * r1 + Math.PI * r2; return 2 * L + Math.PI * r2 + (d - 2 * L - Math.PI * r1) / r1 * r2; },
+  path: (g, rr, n = 120) => Array.from({ length: n + 1 }, (_, k) => GEO.at(g, rr, k / n * GEO.perim(g, rr))),
+  fit(fixes) {                                       // fixes [t, lat, lng, acc] → stadium: centre, direction, straight length, outer radius
+    const F = fixes.filter(f => f[3] <= 8); if (F.length < 40) return null;
+    const o = { lat: F.reduce((a, f) => a + f[1], 0) / F.length, lng: F.reduce((a, f) => a + f[2], 0) / F.length };
+    const P = F.map(f => GEO.xy(o, { lat: f[1], lng: f[2] })), A = F.map(f => Math.max(f[3], 1));
+    const mx = P.reduce((a, p) => a + p[0], 0) / P.length, my = P.reduce((a, p) => a + p[1], 0) / P.length;
+    let sxx = 0, syy = 0, sxy = 0; P.forEach(([x, y]) => { sxx += (x - mx) ** 2; syy += (y - my) ** 2; sxy += (x - mx) * (y - my); });
+    const th0 = 0.5 * Math.atan2(2 * sxy, sxx - syy), g0 = { cx: mx, cy: my, th: th0, L: 0, R: 0 };
+    const U = P.map(([x, y]) => GEO.uv(g0, x, y)), lu = Math.max(...U.map(q => q[0])) - Math.min(...U.map(q => q[0])), lv = Math.max(...U.map(q => q[1])) - Math.min(...U.map(q => q[1]));
+    const cost = p => { const g = { cx: p[0], cy: p[1], th: p[2], L: Math.abs(p[3]), R: Math.abs(p[4]) }; let s = 0; P.forEach(([x, y], i) => { const z = GEO.edge(g, x, y) / A[i]; s += 2 * (Math.sqrt(1 + z * z) - 1); }); return s; };
+    let best = [mx, my, th0, Math.max(lu - lv, 1), lv / 2];
+    for (let k = 0; k < 3; k++) best = nelderMead(cost, best, [3, 3, 0.05, 5, 3], 700);
+    const g = { origin: o, cx: best[0], cy: best[1], th: best[2], L: Math.abs(best[3]), R: Math.abs(best[4]) };
+    const d = P.map(([x, y]) => GEO.edge(g, x, y));
+    g.err = Math.sqrt(d.reduce((a, v) => a + v * v, 0) / d.length); g.n = F.length; g.outer = GEO.perim(g, g.R);
+    return g;
+  },
+};
+function nelderMead(f, x0, step, it) {
+  const n = x0.length; let P = [x0.slice()]; for (let i = 0; i < n; i++) { const x = x0.slice(); x[i] += step[i]; P.push(x); }
+  let F = P.map(f);
+  for (let k = 0; k < it; k++) {
+    const o = F.map((_, i) => i).sort((a, b) => F[a] - F[b]); P = o.map(i => P[i]); F = o.map(i => F[i]);
+    const c = Array(n).fill(0); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) c[j] += P[i][j] / n;
+    const pt = t => c.map((v, j) => v + t * (P[n][j] - v)), xr = pt(-1), fr = f(xr);
+    if (fr < F[0]) { const xe = pt(-2), fe = f(xe); [P[n], F[n]] = fe < fr ? [xe, fe] : [xr, fr]; }
+    else if (fr < F[n - 1]) { P[n] = xr; F[n] = fr; }
+    else { const xc = pt(fr < F[n] ? -0.5 : 0.5), fc = f(xc);
+      if (fc < Math.min(fr, F[n])) { P[n] = xc; F[n] = fc; } else for (let i = 1; i <= n; i++) { P[i] = P[i].map((v, j) => P[0][j] + 0.5 * (v - P[0][j])); F[i] = f(P[i]); } }
+  }
+  return P[F.indexOf(Math.min(...F))];
+}
+const rinkById = id => S.rinks.find(r => r.id === id);
+function lineOf(r, kind) {                           // every parent's mark is one vote; the line is their accuracy-weighted mean
+  const M = (r.marks || []).filter(m => m.kind === kind); if (!M.length) return null;
+  const w = M.map(m => 1 / Math.max(m.acc, 1) ** 2), W = w.reduce((a, b) => a + b, 0);
+  const p = { lat: M.reduce((a, m, i) => a + m.lat * w[i], 0) / W, lng: M.reduce((a, m, i) => a + m.lng * w[i], 0) / W, acc: Math.min(...M.map(m => m.acc)), n: M.length };
+  if (r.geo) { const [x, y] = GEO.xy(r.geo.origin, p); p.s = GEO.sOf(r.geo, r.lap_m, x, y); }
+  return p;
+}
+function rinkLinesDist(r) { const a = lineOf(r, "start"), b = lineOf(r, "finish"); if (!a || !b || a.s == null) return null;
+  const P = r.lap_m || GEO.perim(r.geo, GEO.rad(r.geo, r.lap_m)); return ((b.s - a.s) % P + P) % P; }
+function drawRink(cv, r, raw) {                      // edge, skating line, the walk and the marked lines on a canvas
+  if (!cv) return; const x = cv.getContext("2d"), W = cv.width, H = cv.height; x.clearRect(0, 0, W, H);
+  const g = r && r.geo, pts = [];
+  const o = g ? g.origin : raw && raw.length ? { lat: raw[0][1], lng: raw[0][2] } : null; if (!o) return;
+  const rawXY = (raw || []).map(f => GEO.xy(o, { lat: f[1], lng: f[2] }));
+  const edge = g ? GEO.path(g, g.R) : [], line = g ? GEO.path(g, GEO.rad(g, r.lap_m)) : [];
+  [...rawXY, ...edge].forEach(p => pts.push(p)); if (!pts.length) return;
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const k = Math.min((W - 40) / Math.max(x1 - x0, 1), (H - 40) / Math.max(y1 - y0, 1)), X = p => 20 + (p[0] - x0) * k + ((W - 40) - (x1 - x0) * k) / 2, Y = p => H - 20 - (p[1] - y0) * k - ((H - 40) - (y1 - y0) * k) / 2;
+  x.fillStyle = "#8a93a8"; rawXY.forEach(p => { x.beginPath(); x.arc(X(p), Y(p), 2, 0, 7); x.fill(); });
+  const poly = (P, col, w, dash) => { if (!P.length) return; x.beginPath(); x.setLineDash(dash || []); x.strokeStyle = col; x.lineWidth = w; P.forEach((p, i) => i ? x.lineTo(X(p), Y(p)) : x.moveTo(X(p), Y(p))); x.stroke(); x.setLineDash([]); };
+  poly(edge, "#c9d1e3", 2); poly(line, "#5CE1FF", 3);
+  const same = g && (() => { const a = lineOf(r, "start"), b = lineOf(r, "finish"); return a && b && Math.abs(a.s - b.s) < 2; })();
+  if (g) [["start", "#D4F53C"], ["finish", "#F2923A"]].forEach(([kind, col]) => { const L = lineOf(r, kind); if (!L || (same && kind === "start")) return;
+    const rs = GEO.rad(g, r.lap_m), a = GEO.at(g, g.R + 3, GEO.remap(g, rs, L.s, g.R + 3)), b = GEO.at(g, rs - 4, GEO.remap(g, rs, L.s, rs - 4));
+    x.strokeStyle = col; x.lineWidth = 4; x.beginPath(); x.moveTo(X(a), Y(a)); x.lineTo(X(b), Y(b)); x.stroke();
+    x.fillStyle = col; x.font = "bold 13px Inter, sans-serif"; x.fillText(t(same ? "rl_both" : kind === "start" ? "rl_start" : "rl_finish"), X(a) + 6, Y(a) - 6); });
+}
+const WALK = { fixes: [], watch: null, on: false, lock: null, res: null };
+screens.rinksetup = () => {
+  const r = rinkById(S.viewRink); if (!r) { setTimeout(() => go("rinks")); return ""; }
+  const g = r.geo, st = lineOf(r, "start"), fi = lineOf(r, "finish"), sf = rinkLinesDist(r);
+  const ln = L => L ? T("rs_marked", { acc: Math.round(L.acc), n: L.n }) : T("rs_unmarked");
+  return `${back(S.setupNext || "rink", "")}<h1>${T("rs_title", { name: esc(r.name) })}</h1><p class="sub">${T(S.setupPrompt ? "rs_sub_new" : "rs_sub")}</p>
+  ${g ? `<canvas id="rsc" width="640" height="300" style="width:100%;background:var(--card);border-radius:12px"></canvas>` : ""}
+  <div class="card">
+    <div class="kv"><span>${T("rs_shape")}</span><span>${g ? T(g.src === "walk" ? "rs_shape_walk" : "rs_shape_oval", { err: g.err ? g.err.toFixed(1) : "–", date: esc(dfmt(new Date(g.at), { day: "numeric", month: "short" })) }) : T("rs_shape_none")}</span></div>
+    ${g ? `<div class="kv"><span>${T("rs_line")}</span><span>${T("rs_line_v", { lap: r.lap_m, off: GEO.offset(g, r.lap_m).toFixed(1) })}</span></div>` : ""}
+    <div class="kv"><span>${T("rl_start")}</span><span>${ln(st)}</span></div>
+    <div class="kv"><span>${T("rl_finish")}</span><span>${ln(fi)}</span></div>
+    ${sf != null ? `<div class="kv"><span>${T("rs_sf")}</span><span>${sf < 2 || sf > (r.lap_m || 1e9) - 2 ? T("rs_sf_same") : T("rs_sf_v", { m: Math.round(sf) })}</span></div>` : ""}
+  </div>
+  ${!st || !fi ? `<div class="hint">${T("rs_mark_hint")}</div>` : ""}
+  <button id="rswalk">${T(g && g.src === "walk" ? "rs_walk_again" : "rs_walk")}</button>
+  <button class="secondary" id="rsoval">${T("rs_oval")}</button>
+  ${S.setupPrompt ? `<button class="link" id="rslater">${T("rs_later")}</button>` : ""}
+  <div class="hint">${T("rs_votes")}</div>`;
+};
+screens.rinksetup.init = () => {
+  const r = rinkById(S.viewRink); if (!r) return;
+  drawRink($("#rsc"), r, null);
+  $("#rswalk").onclick = () => { Object.assign(WALK, { fixes: [], on: false, res: null }); go("rinkwalk"); };
+  $("#rsoval").onclick = () => go("rinkoval");
+  if ($("#rslater")) $("#rslater").onclick = () => { const n = S.setupNext; S.setupPrompt = false; S.setupNext = null; persist(); go(n || "rinks"); };
+};
+function walkStats() {
+  const F = WALK.fixes; if (!F.length) return { n: 0, d: 0, laps: 0, s: 0, acc: null };
+  const o = { lat: F[0][1], lng: F[0][2] }, P = F.map(f => GEO.xy(o, { lat: f[1], lng: f[2] }));
+  let d = 0; for (let i = 1; i < P.length; i++) d += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+  const cx = P.reduce((a, p) => a + p[0], 0) / P.length, cy = P.reduce((a, p) => a + p[1], 0) / P.length;
+  let turn = 0, prev = null; P.forEach(p => { const a = Math.atan2(p[1] - cy, p[0] - cx); if (prev !== null) { let da = a - prev; da -= 2 * Math.PI * Math.round(da / (2 * Math.PI)); turn += da; } prev = a; });
+  return { n: F.length, d, laps: Math.abs(turn) / (2 * Math.PI), s: F.at(-1)[0] - F[0][0], acc: F.at(-1)[3] };
+}
+screens.rinkwalk = () => {
+  const r = rinkById(S.viewRink); if (!r) { setTimeout(() => go("rinks")); return ""; }
+  const w = walkStats(), R = WALK.res;
+  return `${back("rinksetup", "")}<h1>${T("rw_title")}</h1><p class="sub">${T("rw_sub", { name: esc(r.name) })}</p>
+  <div class="card"><div class="mstats" style="flex-wrap:wrap"><div><b id="rwT">${mmss(w.s)}</b>${T("rw_time")}</div><div><b id="rwL">${w.laps.toFixed(1)}</b>${T("rw_laps")}</div><div><b id="rwD">${Math.round(w.d)}</b>m</div><div><b id="rwA">${w.acc ? "±" + Math.round(w.acc) : "–"}</b>${T("rw_gps")}</div></div></div>
+  <canvas id="rwc" width="640" height="300" style="width:100%;background:var(--card);border-radius:12px"></canvas>
+  ${R ? (R.g ? `<div class="card"><b>${T("rw_done")}</b><div class="meta">${T("rw_done_d", { outer: Math.round(R.g.outer), len: R.g.L.toFixed(1), rad: R.g.R.toFixed(1), err: R.g.err.toFixed(1), off: GEO.offset(R.g, r.lap_m).toFixed(1), lap: r.lap_m })}</div>
+      ${R.warn ? `<div class="hint" style="color:var(--warn-ink)">${esc(R.warn)}</div>` : ""}</div>
+      <div class="row"><button class="secondary" id="rwredo">${T("rw_redo")}</button><button id="rwsave">${T("rw_save")}</button></div>`
+    : `<div class="card" style="color:var(--warn-ink)">${T("rw_fail")}</div><button id="rwredo">${T("rw_redo")}</button>`)
+  : `<div class="row">${WALK.on ? `<button id="rwstop" style="background:var(--signal);color:var(--midnight)">${T("rw_stop")}</button>` : `<button id="rwgo">${T("rw_go")}</button>`}</div>
+     ${S.demo && !WALK.on ? `<button class="link" id="rwsample">${T("rw_sample")}</button>` : ""}
+     <div class="hint">${T("rw_tips")}</div>`}`;
+};
+screens.rinkwalk.init = () => {
+  const r = rinkById(S.viewRink); if (!r) return;
+  const redraw = () => drawRink($("#rwc"), WALK.res && WALK.res.g ? Object.assign({}, r, { geo: WALK.res.g, marks: [] }) : null, WALK.fixes);
+  redraw();
+  const upd = () => { const w = walkStats(); if (!$("#rwT")) return; $("#rwT").textContent = mmss(w.s); $("#rwL").textContent = w.laps.toFixed(1); $("#rwD").textContent = Math.round(w.d); $("#rwA").textContent = w.acc ? "±" + Math.round(w.acc) : "–"; redraw(); };
+  const finish = () => {
+    if (WALK.watch !== null && navigator.geolocation) navigator.geolocation.clearWatch(WALK.watch); WALK.watch = null; WALK.on = false;
+    if (WALK.lock) { WALK.lock.release().catch(() => {}); WALK.lock = null; }
+    const g = GEO.fit(WALK.fixes), w = walkStats();
+    let warn = null;
+    if (g && w.laps < 1.8) warn = t("rw_warn_laps", { n: w.laps.toFixed(1) });
+    if (g && g.err > 2.5) warn = t("rw_warn_err", { err: g.err.toFixed(1) });
+    if (g && r.lap_m && (GEO.offset(g, r.lap_m) < 0.5 || GEO.offset(g, r.lap_m) > 20)) warn = t("rw_warn_lap", { lap: r.lap_m, outer: Math.round(g.outer) });
+    WALK.res = { g, warn }; render();
+  };
+  if ($("#rwgo")) $("#rwgo").onclick = () => {
+    if (!navigator.geolocation) return toast(t("rw_nogps"));
+    Object.assign(WALK, { fixes: [], on: true, res: null });
+    WALK.watch = navigator.geolocation.watchPosition(p => { WALK.fixes.push([p.timestamp / 1000, p.coords.latitude, p.coords.longitude, p.coords.accuracy]); upd(); },
+      () => toast(t("rw_nogps")), { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    if (navigator.wakeLock) navigator.wakeLock.request("screen").then(l => WALK.lock = l).catch(() => {});
+    render();
+  };
+  if ($("#rwstop")) $("#rwstop").onclick = finish;
+  if ($("#rwsample")) $("#rwsample").onclick = () => { WALK.fixes = VN_WALK.map(f => f.slice()); finish(); };
+  if ($("#rwredo")) $("#rwredo").onclick = () => { Object.assign(WALK, { fixes: [], on: false, res: null }); render(); };
+  if ($("#rwsave")) $("#rwsave").onclick = () => {
+    const g = WALK.res.g; g.src = "walk"; g.at = new Date().toISOString();
+    r.geo = g; r.loc = r.loc || { lat: GEO.ll(g.origin, g.cx, g.cy).lat, lng: GEO.ll(g.origin, g.cx, g.cy).lng, learned: g.at };
+    (r.walks = r.walks || []).push({ at: g.at, by: role(), n: g.n, err: +g.err.toFixed(2), outer: +g.outer.toFixed(1), fixes: WALK.fixes.map(f => [Math.round(f[0]), +f[1].toFixed(7), +f[2].toFixed(7), +f[3].toFixed(1)]) });
+    Object.assign(WALK, { fixes: [], res: null }); persist(); toast(t("rw_saved")); go("rinksetup");
+  };
+};
+function loadLeaflet(cb) {
+  if (window.L && window.L.map) return cb(true);
+  const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+  const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = () => cb(true); s.onerror = () => cb(false); document.head.appendChild(s);
+  setTimeout(() => { if (!(window.L && window.L.map)) cb(false); }, 9000);
+}
+const OVAL = { len: null, wid: null, rot: null, map: null };
+screens.rinkoval = () => {
+  const r = rinkById(S.viewRink); if (!r) { setTimeout(() => go("rinks")); return ""; }
+  const g = r.geo, R0 = g ? g.R : 19, L0 = g ? g.L : Math.max(10, ((r.lap_m || 200) + 2 * Math.PI * 7 - 2 * Math.PI * R0) / 2);
+  if (OVAL.len === null) Object.assign(OVAL, { len: Math.round(L0 + 2 * R0), wid: Math.round(2 * R0), rot: g ? Math.round(((g.th * 180 / Math.PI) % 180 + 180) % 180) : 0 });
+  return `${back("rinksetup", "")}<h1>${T("ro_title")}</h1><p class="sub">${T("ro_sub")}</p>
+  <div id="omap" style="height:340px;border-radius:12px;overflow:hidden;background:var(--section);position:relative"><div class="meta" id="omsg" style="padding:16px">${T("ro_loading")}</div></div>
+  <label for="ol">${T("ro_len")} <b id="olv">${OVAL.len} m</b></label><input type="range" id="ol" min="40" max="220" step="1" value="${OVAL.len}">
+  <label for="ow">${T("ro_wid")} <b id="owv">${OVAL.wid} m</b></label><input type="range" id="ow" min="16" max="100" step="1" value="${OVAL.wid}">
+  <label for="or">${T("ro_rot")} <b id="orv">${OVAL.rot}°</b></label><input type="range" id="or" min="0" max="179" step="1" value="${OVAL.rot}">
+  <div class="card meta" id="oinfo"></div>
+  <button id="osave">${T("ro_save")}</button>`;
+};
+screens.rinkoval.init = () => {
+  const r = rinkById(S.viewRink); if (!r) return;
+  let poly = null, line = null;
+  const geoNow = c => { const w = OVAL.wid, R = w / 2; return { origin: { lat: c.lat, lng: c.lng }, cx: 0, cy: 0, th: OVAL.rot * Math.PI / 180, L: Math.max(OVAL.len - w, 0), R }; };
+  const info = () => { const c = OVAL.map ? OVAL.map.getCenter() : null, g = geoNow(c || { lat: 0, lng: 0 });
+    $("#oinfo").textContent = t("ro_info", { outer: Math.round(GEO.perim(g, g.R)), off: GEO.offset(g, r.lap_m).toFixed(1), lap: r.lap_m }); };
+  const draw = () => { info(); if (!OVAL.map) return; const g = geoNow(OVAL.map.getCenter()), ll = P => P.map(([x, y]) => { const q = GEO.ll(g.origin, x, y); return [q.lat, q.lng]; });
+    if (poly) poly.setLatLngs(ll(GEO.path(g, g.R))); else poly = window.L.polygon(ll(GEO.path(g, g.R)), { color: "#F2923A", weight: 3, fill: false }).addTo(OVAL.map);
+    const rr = GEO.rad(g, r.lap_m); if (rr > 1) { if (line) line.setLatLngs(ll(GEO.path(g, rr))); else line = window.L.polyline(ll(GEO.path(g, rr)), { color: "#5CE1FF", weight: 2, dashArray: "6 6" }).addTo(OVAL.map); } };
+  [["#ol", "len", "#olv", " m"], ["#ow", "wid", "#owv", " m"], ["#or", "rot", "#orv", "°"]].forEach(([id, k, lab, u]) => $(id).oninput = e => { OVAL[k] = +e.target.value; $(lab).textContent = OVAL[k] + u; draw(); });
+  info();
+  const start = c => loadLeaflet(ok => {
+    if (!$("#omap")) return;
+    if (!ok) { $("#omsg").textContent = t("ro_nomap"); return; }
+    if (OVAL.map) { OVAL.map.remove(); OVAL.map = null; }
+    $("#omap").innerHTML = "";
+    OVAL.map = window.L.map("omap", { zoomControl: true, attributionControl: true }).setView([c.lat, c.lng], 18);
+    window.L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Esri" }).addTo(OVAL.map);
+    poly = null; line = null; OVAL.map.on("move", draw); draw();
+  });
+  const g = r.geo, c0 = g ? GEO.ll(g.origin, g.cx, g.cy) : r.loc;
+  if (c0) start(c0); else getFix(f => start(f || { lat: 18.5646, lng: 73.9104 }));
+  $("#osave").onclick = () => {
+    if (!OVAL.map) return toast(t("ro_nomap"));
+    const g2 = geoNow(OVAL.map.getCenter()); Object.assign(g2, { src: "oval", at: new Date().toISOString(), err: null, outer: GEO.perim(g2, g2.R) });
+    if (!r.geo || r.geo.src !== "walk" || confirm(t("ro_replace"))) { r.geo = g2; r.loc = r.loc || { lat: g2.origin.lat, lng: g2.origin.lng, learned: g2.at }; }
+    OVAL.map.remove(); Object.assign(OVAL, { map: null, len: null, wid: null, rot: null }); persist(); toast(t("saved")); go("rinksetup");
+  };
+};
+// ---------------------------------------------------------------- marking a start or finish line while timing: stand level with it on the edge, press, hold still 5 s
+function timingRink() {
+  if (SW.race) { const e = (S.events || []).find(z => z.id === SW.race.eid); return e && rinkById(e.rink_id); }
+  if (SW.practice && S.live) return rinkById(S.live.rink_id);
+  const k = currentSkater(); return rinkById(S.swRink || (k && lastOf(k.id, "rink_id")) || (S.rinks[0] || {}).id);
+}
+function linesCard(r) {
+  if (!r) return "";
+  const st = lineOf(r, "start"), fi = lineOf(r, "finish");
+  if (st && fi) return `<div class="meta" style="margin:6px 0">${T("lm_done", { rink: esc(r.short) })} <button class="link" data-mark="start">${T("lm_again_s")}</button> · <button class="link" data-mark="finish">${T("lm_again_f")}</button></div>`;
+  return `<div class="card"><b>${T("lm_h", { rink: esc(r.short) })}</b><div class="meta">${T("lm_d")}</div>
+    <div class="row" style="margin-top:8px">${st ? `<span class="badge">✓ ${T("rl_start")}</span>` : `<button class="secondary" data-mark="start">${T("lm_start")}</button>`}${fi ? `<span class="badge">✓ ${T("rl_finish")}</span>` : `<button class="secondary" data-mark="finish">${T("lm_finish")}</button>`}</div></div>`;
+}
+function markLine(r, kind) {
+  const box = document.createElement("div"); box.className = "lmodal"; document.body.appendChild(box);
+  const close = () => { if (box.watch != null && navigator.geolocation) navigator.geolocation.clearWatch(box.watch); box.remove(); };
+  const pic = `<svg viewBox="0 0 300 110" style="width:100%;max-width:320px"><rect x="20" y="15" width="260" height="80" rx="40" fill="none" stroke="#c9d1e3" stroke-width="3"/><rect x="45" y="35" width="210" height="40" rx="20" fill="none" stroke="#5CE1FF" stroke-width="2" stroke-dasharray="5 5"/>
+    <line x1="150" y1="75" x2="150" y2="95" stroke="${kind === "start" ? "#D4F53C" : "#F2923A"}" stroke-width="5"/><circle cx="150" cy="104" r="5" fill="#fff"/><text x="160" y="108" fill="#c9d1e3" font-size="11">${esc(t("lm_you"))}</text></svg>`;
+  const step1 = () => { box.innerHTML = `<div class="lm"><b>${T(kind === "start" ? "lm_start" : "lm_finish")}</b>${pic}<p>${T("lm_how", { line: esc(t(kind === "start" ? "rl_start_l" : "rl_finish_l")) })}</p>
+    <div class="row"><button class="secondary" id="lmx">${T("cancel")}</button><button id="lmgo">${T("lm_hold")}</button></div></div>`;
+    $("#lmx").onclick = close; $("#lmgo").onclick = step2; };
+  const save = (fx, rough) => { (r.marks = r.marks || []).push({ kind, lat: fx.lat, lng: fx.lng, acc: +fx.acc.toFixed(1), n: fx.n, at: new Date().toISOString(), by: role(), rough: !!rough });
+    persist(); close(); toast(t(kind === "start" ? "lm_saved_s" : "lm_saved_f")); render(); };
+  const step2 = () => {
+    const F = []; let left = 5;
+    box.innerHTML = `<div class="lm"><b>${T("lm_still")}</b><div class="timer" id="lmc" style="font-size:64px">5</div><div class="meta" id="lmn">${T("lm_gps_wait")}</div></div>`;
+    if (navigator.geolocation) box.watch = navigator.geolocation.watchPosition(p => { F.push(p.coords); const e = $("#lmn"); if (e) e.textContent = t("lm_gps_n", { n: F.length, acc: Math.round(p.coords.accuracy) }); }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
+    const tick = setInterval(() => { left--; const e = $("#lmc"); if (e) e.textContent = Math.max(left, 0); if (left > 0) return; clearInterval(tick);
+      if (!F.length && S.demo && r.geo) {               // demo without GPS: a mark on the edge beside the end of the home straight
+        const g = r.geo, q = GEO.at(g, g.R, g.L - 8), p = GEO.ll(g.origin, q[0], q[1]);
+        return save({ lat: p.lat, lng: p.lng, acc: 3, n: 5 }); }
+      if (!F.length) { box.innerHTML = `<div class="lm"><b>${T("lm_nogps")}</b><p>${T("lm_nogps_d")}</p><div class="row"><button class="secondary" id="lmx">${T("cancel")}</button><button id="lmre">${T("lm_retry")}</button></div></div>`; $("#lmx").onclick = close; $("#lmre").onclick = step2; return; }
+      const w = F.map(c => 1 / Math.max(c.accuracy, 1) ** 2), W = w.reduce((a, b) => a + b, 0);
+      const fx = { lat: F.reduce((a, c, i) => a + c.latitude * w[i], 0) / W, lng: F.reduce((a, c, i) => a + c.longitude * w[i], 0) / W, acc: Math.min(...F.map(c => c.accuracy)), n: F.length };
+      if (fx.acc <= 8) return save(fx);
+      box.innerHTML = `<div class="lm"><b>${T("lm_rough", { acc: Math.round(fx.acc) })}</b><p>${T("lm_rough_d")}</p><div class="row"><button class="secondary" id="lmkeep">${T("lm_keep")}</button><button id="lmre">${T("lm_retry")}</button></div></div>`;
+      $("#lmkeep").onclick = () => save(fx, true); $("#lmre").onclick = step2;
+    }, 1000);
+  };
+  step1();
+}
+function wireLines() { document.querySelectorAll("[data-mark]").forEach(b => b.onclick = () => { const r = timingRink(); if (r) markLine(r, b.dataset.mark); }); }
+// ---------------------------------------------------------------- timing other skaters: kept apart, never counted in the family's own data
+screens.othersave = () => {
+  if (!SW.stopped) { setTimeout(() => go("stopwatch")); return ""; }
+  const f = SW.oform = SW.oform || {}, names = [...new Set((S.others || []).map(o => o.name))], L = SW.laps, best = L.length ? Math.min(...L) : null;
+  const r0 = f.rink || (timingRink() || {}).id;
+  return `${back("stopwatch", "")}<h1>${T("os_title")}</h1><p class="sub">${T("os_sub", { name: esc((currentSkater() || {}).display_name || "") })}</p>
+  <div class="card"><b>${L.length ? T("laps_n", { n: L.length }) : T("no_laps")}</b> · ${fmtTime(SW.stopped)}${best ? ` · ${T("best_lap")} ${fmtLap(best)} s` : ""}</div>
+  <label for="onm">${T("os_who")}</label><input id="onm" list="onml" value="${esc(f.name || "")}" placeholder="${T("os_who_ph")}"><datalist id="onml">${names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+  <label>${T("what_timed")}</label><div class="seg" id="okind">${[["laps", "kind_laps"], ["race", "kind_race"]].map(([v, l]) => `<button type="button" data-v="${v}" class="${(f.kind || "laps") === v ? "on" : ""}">${T(l)}</button>`).join("")}</div>
+  <label for="ork">${T("rink")}</label>${rinkSelect("ork", r0)}
+  <label for="ont">${T("me_notes")}</label><textarea id="ont" rows="3" placeholder="${T("os_note_ph")}">${esc(f.note || "")}</textarea>
+  <button id="osv">${T("save_timing")}</button>`;
+};
+screens.othersave.init = () => {
+  if (!$("#osv")) return; const f = SW.oform; segToggle("#okind");
+  $("#ork").onchange = e => { if (e.target.value === "+") { f.name = $("#onm").value; f.note = $("#ont").value; S.after = "othersave"; go("rinkadd"); } };
+  $("#osv").onclick = () => {
+    S.others = S.others || [];
+    S.others.push({ id: uid(), name: $("#onm").value.trim() || t("os_unnamed"), at: SW.start, kind: segVal("#okind"), rink_id: $("#ork").value, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2),
+                    ...(SW.part ? { part: SW.part } : {}), note: $("#ont").value.trim() || null, phone_at: SW.phoneAt || null, timed_by: role(), with_skater: (currentSkater() || {}).id || null,
+                    race: SW.race ? { eid: SW.race.eid } : null });
+    const back2 = SW.practice ? "live" : "others";
+    Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, forOther: false, oform: null }); persist(); toast(t("os_saved")); go(back2);
+  };
+};
+screens.others = () => {
+  const L = (S.others || []).slice().sort((a, b) => b.at.localeCompare(a.at)), k = currentSkater();
+  const by = {}; L.forEach(o => (by[o.name] = by[o.name] || []).push(o));
+  return `${back("insights", "")}<h1>${T("ot_title")}</h1><p class="sub">${T("ot_sub", { name: esc(k ? k.display_name : "") })}</p>
+  ${Object.entries(by).map(([n, a]) => { const all = a.flatMap(o => o.laps), b = all.length ? Math.min(...all) : null;
+    return `<details class="card"><summary><b>${esc(n)}</b> <span class="meta">· ${T("ot_count", { n: a.length })}${b ? ` · ${T("best_lap")} ${fmtLap(b)} s` : ""}</span></summary>
+      ${a.map(o => `<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div class="kv"><span>${esc(dfmt(new Date(o.at), { day: "numeric", month: "short" }))} · ${esc(tod(o.at))} · ${esc((rinkById(o.rink_id) || {}).short || "")} · ${T(o.kind === "race" ? "kind_race" : "kind_laps")}</span><span><b>${fmtTime(o.total)}</b></span></div>
+        <div>${o.laps.map(v => `<span class="lapchip">${fmtLap(v)}</span>`).join(" ")}${o.part ? ` <span class="lapchip">+${fmtLap(o.part)}</span>` : ""}</div>
+        ${o.note ? `<div class="meta">${esc(o.note)}</div>` : ""}<button class="link" data-odel="${o.id}">${T("delete")}</button></div>`).join("")}</details>`; }).join("") || `<div class="card meta">${T("ot_none")}</div>`}
+  <button class="secondary" onclick="SW.forOther=true;SW.race=null;SW.practice=false;go('stopwatch')">${T("ot_time")}</button>`;
+};
+screens.others.init = () => document.querySelectorAll("[data-odel]").forEach(b => b.onclick = () => { if (!confirm(t("ot_del_q"))) return; S.others = S.others.filter(o => o.id !== b.dataset.odel); persist(); render(); });
+const VN_WALK = [[0,18.5646336,73.9104537,3.7],[2,18.5646338,73.9104550,3.5],[4,18.5646289,73.9104699,3.5],[6,18.5646314,73.9104925,4.7],[8,18.5646318,73.9105159,4.7],[10,18.5646253,73.9105332,4.7],[12,18.5646260,73.9105577,4.7],[14,18.5646241,73.9105834,4.7],[16,18.5646252,73.9106086,4.7],[18,18.5646253,73.9106267,4.7],[20,18.5646237,73.9106525,4.7],[22,18.5646264,73.9106714,4.7],[24,18.5646298,73.9106942,4.7],[26,18.5646398,73.9107284,2.4],[28,18.5646512,73.9107534,4.9],[30,18.5646741,73.9107673,4.5],[32,18.5646853,73.9107801,4.3],[34,18.5647133,73.9107875,4.3],[36,18.5647366,73.9108013,4.2],[38,18.5647628,73.9108060,4.0],[40,18.5647917,73.9108073,3.9],[42,18.5648184,73.9108155,4.0],[44,18.5648389,73.9108135,4.0],[46,18.5648604,73.9108062,4.0],[48,18.5648871,73.9107978,4.0],[50,18.5649018,73.9107876,3.9],[52,18.5649184,73.9107753,3.9],[54,18.5649355,73.9107578,3.9],[56,18.5649477,73.9107464,3.9],[58,18.5649590,73.9107229,3.9],[60,18.5649664,73.9107038,3.9],[62,18.5649697,73.9106802,3.9],[64,18.5649730,73.9106543,3.8],[66,18.5649734,73.9106320,3.9],[68,18.5649683,73.9106077,3.7],[70,18.5649666,73.9105786,3.7],[72,18.5649613,73.9105518,3.7],[74,18.5649598,73.9105308,3.7],[76,18.5649586,73.9105032,3.7],[78,18.5649586,73.9104761,3.6],[80,18.5649586,73.9104523,3.5],[82,18.5649570,73.9104313,3.5],[84,18.5649604,73.9104118,3.4],[86,18.5649553,73.9103856,3.6],[88,18.5649547,73.9103600,3.5],[90,18.5649536,73.9103347,3.4],[92,18.5649482,73.9103056,3.4],[94,18.5649508,73.9102867,3.4],[96,18.5649503,73.9102586,3.4],[98,18.5649447,73.9102319,3.4],[100,18.5649485,73.9102083,3.5],[102,18.5649497,73.9101862,3.5],[104,18.5649506,73.9101648,3.5],[106,18.5649516,73.9101466,3.4],[108,18.5649524,73.9101202,3.5],[110,18.5649511,73.9100946,3.5],[112,18.5649508,73.9100693,3.5],[114,18.5649437,73.9100407,3.5],[116,18.5649399,73.9100145,3.4],[118,18.5649301,73.9099887,3.4],[120,18.5649210,73.9099619,3.3],[122,18.5649129,73.9099426,3.3],[124,18.5648999,73.9099252,3.3],[126,18.5648865,73.9099095,3.3],[128,18.5648656,73.9098952,3.3],[130,18.5648456,73.9098839,3.2],[132,18.5648262,73.9098756,3.1],[134,18.5648016,73.9098734,3.1],[136,18.5647793,73.9098719,3.2],[138,18.5647581,73.9098746,3.2],[140,18.5647377,73.9098791,3.2],[142,18.5647164,73.9098839,3.2],[144,18.5646954,73.9098963,3.2],[146,18.5646810,73.9099098,3.1],[148,18.5646644,73.9099273,3.2],[150,18.5646446,73.9099499,3.2],[152,18.5646313,73.9099743,3.2],[154,18.5646116,73.9099875,3.2],[156,18.5646106,73.9100092,3.2],[158,18.5646065,73.9100278,3.2],[160,18.5646043,73.9100563,3.2],[162,18.5646052,73.9100777,3.3],[164,18.5646073,73.9100890,3.3],[166,18.5646097,73.9101210,3.3],[168,18.5646118,73.9101421,3.2],[170,18.5646217,73.9101684,3.3],[172,18.5646224,73.9101886,3.3],[174,18.5646216,73.9102113,3.2],[176,18.5646208,73.9102348,3.2],[178,18.5646212,73.9102582,3.2],[180,18.5646205,73.9102768,3.2],[182,18.5646213,73.9103031,3.1],[184,18.5646225,73.9103287,3.1],[186,18.5646221,73.9103504,3.0],[188,18.5646247,73.9103771,3.0],[190,18.5646239,73.9104030,2.9],[192,18.5646171,73.9104231,3.0],[194,18.5646212,73.9104489,2.9],[196,18.5646204,73.9104691,3.0],[198,18.5646206,73.9104940,2.9],[200,18.5646246,73.9105188,2.8],[202,18.5646251,73.9105379,2.9],[204,18.5646233,73.9105645,2.9],[206,18.5646259,73.9105863,3.0],[208,18.5646247,73.9106098,3.0],[210,18.5646298,73.9106400,3.1],[212,18.5646240,73.9106567,3.0],[214,18.5646300,73.9106799,2.9],[216,18.5646408,73.9107073,3.0],[218,18.5646476,73.9107248,3.0],[220,18.5646605,73.9107489,3.0],[222,18.5646787,73.9107623,3.0],[224,18.5646937,73.9107768,3.1],[226,18.5647108,73.9107878,3.1],[228,18.5647322,73.9108020,3.2],[230,18.5647454,73.9108127,3.2],[232,18.5647712,73.9108134,3.2],[234,18.5647871,73.9108151,3.2],[236,18.5648134,73.9108167,3.2],[238,18.5648302,73.9108208,3.2],[240,18.5648616,73.9108126,3.2],[242,18.5648852,73.9108020,3.2],[244,18.5649098,73.9107887,3.2],[246,18.5649261,73.9107720,3.2],[248,18.5649354,73.9107601,3.2],[250,18.5649498,73.9107404,3.2],[252,18.5649562,73.9107193,3.2],[254,18.5649625,73.9106973,3.1],[256,18.5649672,73.9106795,3.2],[258,18.5649747,73.9106616,3.2],[260,18.5649759,73.9106370,3.2],[262,18.5649729,73.9106109,3.2],[264,18.5649651,73.9105810,3.2],[266,18.5649620,73.9105551,3.1],[268,18.5649579,73.9105297,3.2],[270,18.5649540,73.9105054,3.1],[272,18.5649541,73.9104796,3.1],[274,18.5649545,73.9104564,3.0],[276,18.5649568,73.9104324,3.0],[278,18.5649585,73.9104138,3.0],[280,18.5649619,73.9103908,3.0],[282,18.5649577,73.9103691,3.0],[284,18.5649585,73.9103486,3.1],[286,18.5649583,73.9103218,3.1],[288,18.5649553,73.9103023,3.0],[290,18.5649508,73.9102781,3.0],[292,18.5649501,73.9102518,3.0],[294,18.5649494,73.9102276,3.0],[296,18.5649494,73.9102050,3.0],[298,18.5649515,73.9101798,3.0],[300,18.5649559,73.9101597,3.0],[302,18.5649494,73.9101333,3.0],[304,18.5649551,73.9101115,3.0],[306,18.5649579,73.9100883,3.0],[308,18.5649545,73.9100605,3.0],[310,18.5649475,73.9100376,3.1],[312,18.5649422,73.9100136,3.1],[314,18.5649336,73.9099890,3.1],[316,18.5649293,73.9099729,3.1],[318,18.5649202,73.9099475,3.2],[320,18.5649003,73.9099255,3.2],[322,18.5648863,73.9099110,3.1],[324,18.5648663,73.9098946,3.1],[326,18.5648489,73.9098851,3.0],[328,18.5648247,73.9098780,3.0],[330,18.5648039,73.9098727,3.0],[332,18.5647794,73.9098727,3.1],[334,18.5647597,73.9098740,3.1],[336,18.5647361,73.9098796,3.1],[338,18.5647157,73.9098833,3.1],[340,18.5646938,73.9098905,3.1],[342,18.5646731,73.9099067,3.1],[344,18.5646574,73.9099260,3.2],[346,18.5646398,73.9099456,3.3],[348,18.5646298,73.9099727,3.3],[350,18.5646235,73.9099945,3.3],[352,18.5646219,73.9100155,3.2],[354,18.5646144,73.9100292,3.2],[356,18.5646152,73.9100491,3.2],[358,18.5646165,73.9100529,3.2],[360,18.5646144,73.9100700,3.2],[362,18.5646126,73.9100842,3.1],[364,18.5646139,73.9101166,3.1],[366,18.5646135,73.9101400,3.1],[368,18.5646131,73.9101676,3.1],[370,18.5646130,73.9101862,3.0],[372,18.5646129,73.9102078,3.0],[374,18.5646159,73.9102343,3.0],[376,18.5646147,73.9102598,3.1],[378,18.5646161,73.9102814,3.0],[380,18.5646202,73.9103067,3.0],[382,18.5646158,73.9103255,2.9],[384,18.5646197,73.9103477,2.9]];
 
 // ================================================================ Skate setups (wheels and bearings only)
 screens.setups = () => {
@@ -1596,7 +1904,7 @@ screens.skate = () => {
     <div class="sub2">${act.length ? T("meets_active", { n: act.length, names: esc(act.map(e => e.name || t("race_event")).join(", ")) }) : T("race_d")}</div>
     <button class="gz-cta" onclick="go('races')">${act.length ? `<span class="live"></span>${T("gz_open_meet")}` : T("gz_new_meet")}</button></div>`;
 };
-screens.skate.init = () => { if (!SW.running) { SW.race = null; SW.practice = false; } wireWho(); };
+screens.skate.init = () => { if (!SW.running) { SW.race = null; SW.practice = false; SW.forOther = false; } wireWho(); };
 
 // ---------------------------------------------------------------- Practice: confirm and start, then everything happens in the running session
 screens.practice = () => {
@@ -1728,7 +2036,7 @@ function liveAuto(L, run) {
 function saveLiveTiming(kind, timing) {                 // a timing taken inside the running practice
   const L = S.live; if (!L) return go("practice");
   L.items.push({ id: uid(), at: timing.at, kind, laps: timing.laps, total: timing.total, distance_laps: kind === "race" ? (timing.laps.length || null) : null,
-                 setup_id: L.setup_id, source: timing.source, marks: timing.marks || null });
+                 setup_id: L.setup_id, source: timing.source, marks: timing.marks || null, phone_at: timing.phone_at || null });
   persist(); toast(t("timing_saved")); go("live");
 }
 
@@ -1872,7 +2180,7 @@ screens.racestart.init = () => {
 };
 function saveRaceTiming() {                          // race stopwatch: Go at the gun, Lap, Stop at the line → the after-race questions
   const e = (S.events || []).find(z => z.id === SW.race.eid), x = e && e.races.find(z => z.id === SW.race.rid);
-  if (x) x.timing = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}) };
+  if (x) x.timing = { source: "manual", at: SW.start, laps: SW.laps.slice(), total: +SW.stopped.toFixed(2), ...(SW.part ? { part: SW.part } : {}), phone_at: SW.phoneAt || null };
   S.viewEvent = SW.race.eid; S.viewRace = SW.race.rid; S.postManual = false;
   Object.assign(SW, { running: false, laps: [], stopped: 0, part: 0, race: null }); persist(); go("racepost");
 }
@@ -2129,7 +2437,8 @@ screens.insights = () => {
   return `${shellTop()}<h1>${T("insights_title")}</h1>
   <div class="chips" id="inssel">${ANALYSED.map(a => `<button type="button" class="chip ${a === A ? "on" : ""}" data-ins="${a.id}">${esc((S.rinks.find(z => z.id === a.rink) || {}).short || "")} · ${esc(dfmt(new Date(a.date + "T12:00"), { day: "numeric", month: "short" }))}</button>`).join("")}</div>
   ${(() => { const L = shares(), a = L.filter(x => x.status === "active").length, i = L.filter(x => x.status === "incoming").length;
-    return `<div class="card tap shr" onclick="go('compare')"><div class="av" style="background:var(--rink)">⇄</div><div style="flex:1"><b>${T("cmp_entry")}</b><div class="meta">${T("cmp_entry_sub", { a })}</div></div>${i ? `<span class="badge pro">${T("cmp_req", { n: i })}</span>` : '<span class="chev">›</span>'}</div>`; })()}
+    return `<div class="card tap shr" onclick="go('others')"><div class="av" style="background:var(--signal)">⏱</div><div style="flex:1"><b>${T("ot_title")}</b><div class="meta">${T("ot_entry", { n: (S.others || []).length })}</div></div><span class="chev">›</span></div>
+    <div class="card tap shr" onclick="go('compare')"><div class="av" style="background:var(--rink)">⇄</div><div style="flex:1"><b>${T("cmp_entry")}</b><div class="meta">${T("cmp_entry_sub", { a })}</div></div>${i ? `<span class="badge pro">${T("cmp_req", { n: i })}</span>` : '<span class="chev">›</span>'}</div>`; })()}
   <div class="nextup ${A.kind === "race" ? "raced" : "striped"}" style="padding-right:24%">${A.kind === "race" ? LANES : ""}<div class="kick">${esc(k ? k.display_name : "")} · ${esc(r ? r.name : "")}</div><div class="ttl">${esc(A.title)}</div>
     <div class="meta" style="color:#C9D1E3">${esc(dfmt(new Date(A.date + "T12:00"), { weekday: "short", day: "numeric", month: "short" }))} · ${A.start} · ${A.mins} min</div>
     <div class="mstats" style="flex-wrap:wrap">${A.head ? `<div><b class="lime">${A.score}</b>${T("score")}</div><div><b>${A.head.laps}</b>${T("laps_n", { n: "" }).trim()}</div><div><b>${A.head.km}</b>km</div><div><b class="lime">${A.head.best}</b>${T("best_lap_short")}</div>` : A.head2.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join("")}</div></div>
